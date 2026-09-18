@@ -1,8 +1,4 @@
-// Filtering over the loaded room catalogue.
-//
-// The catalogue is one campus (9 rooms), so filtering in the browser needs no
-// extra backend endpoint. When the "Find Me a Room" stage adds availability to
-// the question, this logic moves to the API instead.
+// Filtering over the latest complete availability snapshot.
 
 export const EMPTY_FILTERS = { building: "", roomType: "", minCapacity: "" };
 
@@ -25,6 +21,9 @@ export function filterRooms(rooms, filters) {
   const minCapacity = Number.parseInt(filters.minCapacity, 10);
 
   return rooms.filter((room) => {
+    if (room.state !== "AVAILABLE") {
+      return false;
+    }
     if (filters.building && room.building !== filters.building) {
       return false;
     }
@@ -41,4 +40,15 @@ export function filterRooms(rooms, filters) {
 /** True when at least one filter is set (used to show the reset button). */
 export function hasActiveFilters(filters) {
   return Boolean(filters.building || filters.roomType || filters.minCapacity);
+}
+
+export function describeFilters(filters) {
+  const building = filters.building || "any building";
+  const roomType = filters.roomType
+    ? `${filters.roomType.toLowerCase()} rooms`
+    : "rooms";
+  const capacity = filters.minCapacity
+    ? `at least ${filters.minCapacity} seats`
+    : "any capacity";
+  return `${building} ${roomType} with ${capacity}`;
 }

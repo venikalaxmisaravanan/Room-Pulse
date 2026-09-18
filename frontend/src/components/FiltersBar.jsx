@@ -1,18 +1,10 @@
-import { EMPTY_FILTERS } from "../utils/roomFilters.js";
-
 /**
- * Building / room type / minimum capacity filters.
- *
- * These now work: they filter the room catalogue that is already loaded in the
- * browser, so no extra backend query is needed. They stay disabled until the
- * catalogue arrives, because there would be nothing to choose from.
- *
- * Availability is still not part of the query — "find me a room that is free
- * right now" needs the availability engine, which is a later stage.
+ * Building / room type / minimum capacity requirements for current room search.
  */
 export default function FiltersBar({
   filters,
   onChange,
+  onFind,
   options,
   disabled,
   onReset,
@@ -25,11 +17,11 @@ export default function FiltersBar({
     <section className="panel filters" aria-labelledby="filters-heading">
       <div className="panel__head">
         <h2 className="panel__title" id="filters-heading">
-          Narrow it down
+          Find Me a Room
         </h2>
         <p className="panel__note">
-          Filters the loaded catalogue in your browser. Availability-aware
-          search arrives with the availability engine.
+          Search the latest RoomPulse snapshot for rooms that are currently
+          usable.
         </p>
       </div>
 
@@ -83,11 +75,20 @@ export default function FiltersBar({
         </label>
       </div>
 
+      <button
+        type="button"
+        className="filters__find"
+        onClick={onFind}
+        disabled={disabled}
+      >
+        Find Rooms
+      </button>
+
       {showReset && (
         <button
           type="button"
           className="filters__reset"
-          onClick={() => onChange(EMPTY_FILTERS)}
+          onClick={onReset}
           disabled={disabled}
         >
           Clear filters

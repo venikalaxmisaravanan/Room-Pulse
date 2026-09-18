@@ -10,6 +10,7 @@ import {
   filterRooms,
   getFilterOptions,
   hasActiveFilters,
+  describeFilters,
 } from "./utils/roomFilters.js";
 
 /**
@@ -34,12 +35,18 @@ export default function App() {
     connectionState,
   } = useAvailability();
   const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState(null);
 
   const options = useMemo(() => getFilterOptions(rooms), [rooms]);
   const visibleRooms = useMemo(
-    () => filterRooms(rooms, filters),
-    [rooms, filters]
+    () => appliedFilters === null ? rooms : filterRooms(rooms, appliedFilters),
+    [rooms, appliedFilters]
   );
+
+  const handleReset = () => {
+    setFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+  };
 
   return (
     <div className="app">
@@ -49,9 +56,11 @@ export default function App() {
         <FiltersBar
           filters={filters}
           onChange={setFilters}
+          onFind={() => setAppliedFilters(filters)}
           options={options}
           disabled={status !== "ready" || rooms.length === 0}
           showReset={hasActiveFilters(filters)}
+          onReset={handleReset}
         />
 
         <SummaryCards
@@ -62,6 +71,8 @@ export default function App() {
         <RoomResults
           rooms={visibleRooms}
           totalRooms={rooms.length}
+          searched={appliedFilters !== null}
+          searchDescription={describeFilters(appliedFilters ?? EMPTY_FILTERS)}
           status={status}
           error={error}
           evaluatedAt={evaluatedAt}

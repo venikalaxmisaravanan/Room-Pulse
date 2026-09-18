@@ -32,7 +32,7 @@ function formatEvaluatedAt(value) {
 }
 
 /** The three data situations (loading, failure, empty) plus the room grid. */
-function ResultsBody({ rooms, totalRooms, status, error, onRetry }) {
+function ResultsBody({ rooms, totalRooms, status, error, onRetry, searched, searchDescription }) {
   if (status === "loading") {
     return (
       <div className="data-state">
@@ -76,10 +76,13 @@ function ResultsBody({ rooms, totalRooms, status, error, onRetry }) {
   if (rooms.length === 0) {
     return (
       <div className="empty-state">
-        <h3 className="empty-state__title">No rooms match your filters</h3>
+        <h3 className="empty-state__title">
+          {searched ? "No usable rooms found" : "No rooms match your filters"}
+        </h3>
         <p className="empty-state__body">
-          Every room in the loaded catalogue was filtered out. Change the
-          building, room type or minimum capacity to see rooms again.
+          {searched
+            ? `No ${searchDescription} are currently usable. Try a different building, room type or a smaller minimum capacity.`
+            : "Every room in the loaded catalogue was filtered out. Change the building, room type or minimum capacity to see rooms again."}
         </p>
       </div>
     );
@@ -108,6 +111,8 @@ export default function RoomResults({
   error,
   evaluatedAt,
   onRetry,
+  searched,
+  searchDescription,
 }) {
   return (
     <section className="panel results" aria-labelledby="results-heading">
@@ -137,6 +142,8 @@ export default function RoomResults({
         status={status}
         error={error}
         onRetry={onRetry}
+        searched={searched}
+        searchDescription={searchDescription}
       />
 
       <StatusLegend />

@@ -12,6 +12,7 @@ The Room table still has no availability, occupancy or status columns.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Final
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -36,6 +37,8 @@ from app.services.availability import (
 from app.services.occupancy import current_readings
 from app.services.room_service import _slot_sort_key
 from app.services.sensor_freshness import assess_reading
+
+USABLE_STATE: Final[str] = AVAILABLE
 
 
 def _format_time(value) -> str:
@@ -152,4 +155,45 @@ def evaluate_catalogue_from_simulator(now: datetime) -> AvailabilityListResponse
         return evaluate_catalogue(db, now)
 
 
-__all__ = ["evaluate_catalogue", "evaluate_catalogue_from_simulator"]
+def find_usable_rooms(
+    snapshot: AvailabilityListResponse,
+    building: str | None = None,
+    room_type: str | None = None,
+    min_capacity: int | None = None,
+) -> AvailabilityListResponse:
+    """Return current AVAILABLE rooms matching catalogue requirements.
+
+    AVAILABLE is the only usable state: OCCUPIED, FULL, IN_CLASS and UNKNOWN
+    each describe a current condition that prevents RoomPulse from promising
+    immediate use. Existing catalogue order is retained for deterministic
+    results; this function does not introduce a second ranking system.
+    """
+    rooms = [
+        room
+        for room in snapshot.rooms
+        if room.state == USABLE_STATE
+        and (building is None or room.building == building)
+        and (room_type is None or room.room_type == room_type)
+        and (min_capacity is None or room.capacity >= min_capacity)
+    ]
+    counts = {state: 0 for state in (AVAILABLE, IN_CLASS, OCCUPIED, FULL, UNKNOWN)}
+    for room in rooms:
+        counts[room.state] += 1
+    return snapshot.model_copy(
+        update={
+            "count": len(rooms),
+            "available_count": counts[AVAILABLE],
+            "in_class_count": counts[IN_CLASS],
+            "occupied_count": counts[OCCUPIED],
+            "full_count": counts[FULL],
+            "rooms": rooms,
+        }
+    )
+
+
+__all__ = [
+    "USABLE_STATE",
+    "evaluate_catalogue",
+    "evaluate_catalogue_from_simulator",
+    "find_usable_rooms",
+]
