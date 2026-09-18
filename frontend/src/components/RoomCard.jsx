@@ -1,6 +1,9 @@
 import { ROOM_STATES } from "../constants/roomStates.js";
 
-const UNKNOWN_STATE = ROOM_STATES.find((state) => state.id === "UNKNOWN");
+const STATE_BY_ID = Object.fromEntries(
+  ROOM_STATES.map((state) => [state.id, state])
+);
+
 const MAX_VISIBLE_SLOTS = 3;
 
 /** The API sends ISO times ("09:00:00"); the card only needs "09:00". */
@@ -51,14 +54,16 @@ function TimetableList({ slots }) {
 }
 
 /**
- * One room from the catalogue.
+ * One room with its derived availability.
  *
- * The status badge is hard-coded to UNKNOWN because the availability engine
- * does not exist yet: RoomPulse knows the timetable, but nothing turns
- * timetable + occupancy + reservations + sensor freshness into "can I use this
- * room right now?". Showing AVAILABLE here would be a lie.
+ * `state` and `reason` come from GET /api/rooms/availability: the engine
+ * compared the room's timetable against the evaluated moment. AVAILABLE means
+ * "no class is scheduled right now" — not "the room is definitely empty",
+ * because occupancy sensors do not exist yet.
  */
 export default function RoomCard({ room }) {
+  const state = STATE_BY_ID[room.state] ?? STATE_BY_ID.UNKNOWN;
+
   return (
     <article className="room-card">
       <div className="room-card__top">
@@ -68,12 +73,14 @@ export default function RoomCard({ room }) {
         </div>
 
         <span
-          className={`badge badge--${UNKNOWN_STATE.tone}`}
-          title="Availability engine not implemented yet"
+          className={`badge badge--${state.tone}`}
+          title={room.reason}
         >
-          {UNKNOWN_STATE.label}
+          {state.label}
         </span>
       </div>
+
+      <p className="room-card__reason">{room.reason}</p>
 
       <dl className="room-card__facts">
         <div className="fact">

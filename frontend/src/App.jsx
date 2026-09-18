@@ -4,7 +4,7 @@ import FiltersBar from "./components/FiltersBar.jsx";
 import HeaderBar from "./components/HeaderBar.jsx";
 import RoomResults from "./components/RoomResults.jsx";
 import SummaryCards from "./components/SummaryCards.jsx";
-import { useRooms } from "./hooks/useRooms.js";
+import { useAvailability } from "./hooks/useAvailability.js";
 import {
   EMPTY_FILTERS,
   filterRooms,
@@ -16,13 +16,22 @@ import {
  * RoomPulse dashboard.
  *
  * Data flows in one direction:
- *   /api/rooms (SQLite) -> useRooms -> filterRooms -> RoomResults -> RoomCard
+ *   SQLite -> /api/rooms/availability (engine: timetable x now)
+ *     -> useAvailability -> filterRooms -> RoomResults -> RoomCard
  *
- * Every room is shown as UNKNOWN because the availability engine does not exist
- * yet; this stage only proves that real room and timetable data reaches the UI.
+ * Every badge is derived: AVAILABLE means no class is in session at the
+ * evaluated moment, IN_CLASS means a timetable slot is active.
  */
 export default function App() {
-  const { status, rooms, error, reload } = useRooms();
+  const {
+    status,
+    rooms,
+    availableCount,
+    inClassCount,
+    evaluatedAt,
+    error,
+    reload,
+  } = useAvailability();
   const [filters, setFilters] = useState(EMPTY_FILTERS);
 
   const options = useMemo(() => getFilterOptions(rooms), [rooms]);
@@ -44,21 +53,26 @@ export default function App() {
           showReset={hasActiveFilters(filters)}
         />
 
-        <SummaryCards />
+        <SummaryCards
+          availableCount={availableCount}
+          inClassCount={inClassCount}
+        />
 
         <RoomResults
           rooms={visibleRooms}
           totalRooms={rooms.length}
           status={status}
           error={error}
+          evaluatedAt={evaluatedAt}
           onRetry={reload}
         />
       </main>
 
       <footer className="app__footer">
-        <span>RoomPulse · stage 2: room catalogue + timetable from SQLite</span>
+        <span>RoomPulse · stage 3: timetable availability engine</span>
         <span className="app__footer-api">
-          API endpoints: <code>/api/health</code> · <code>/api/rooms</code>
+          API endpoints: <code>/api/health</code> · <code>/api/rooms</code> ·{" "}
+          <code>/api/rooms/availability</code>
         </span>
       </footer>
     </div>

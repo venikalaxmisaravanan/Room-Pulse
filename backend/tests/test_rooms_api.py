@@ -113,5 +113,9 @@ def test_every_timetable_slot_is_valid_and_sorted(client):
 def test_api_exposes_no_write_routes(client):
     schema = client.get("/openapi.json").json()
 
-    assert set(schema["paths"]) == {"/api/health", "/api/rooms"}
+    assert set(schema["paths"]) == {
+        "/api/health",
+        "/api/rooms",
+        "/api/rooms/availability",
+    }
     assert set(schema["paths"]["/api/rooms"]) == {"get"}

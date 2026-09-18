@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health_router, rooms_router
+from app.api.routes import availability_router, health_router, rooms_router
 from app.core.config import (
     API_PREFIX,
     APP_DESCRIPTION,
@@ -60,6 +60,7 @@ app.add_middleware(
 # stages.
 app.include_router(health_router, prefix=API_PREFIX)
 app.include_router(rooms_router, prefix=API_PREFIX)
+app.include_router(availability_router, prefix=API_PREFIX)
 
 
 @app.get("/", include_in_schema=False)

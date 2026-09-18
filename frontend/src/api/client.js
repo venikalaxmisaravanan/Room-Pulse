@@ -21,10 +21,37 @@ export async function getHealth(signal) {
 }
 
 /**
- * Load the room catalogue: every room with the timetable slots that belong to it.
+ * Load the current availability: every room with its derived AVAILABLE /
+ * IN_CLASS state at the server's current time.
  *
- * The response has the shape { count, rooms: [...] }. The list is returned
- * directly because the dashboard only needs the rooms themselves.
+ * The response has the shape
+ * { evaluated_at, count, available_count, in_class_count, rooms: [...] }.
+ * The whole payload is returned (not just the list) because the dashboard
+ * needs the counts and the evaluated moment too.
+ *
+ * One request on page load is enough for this stage: there is no live
+ * sensor stream yet, so there is nothing to keep refreshing.
+ * The caller can invoke the returned `reload` to fetch again manually.
+ *
+ * @param {AbortSignal} [signal] lets the caller cancel the request on unmount.
+ */
+export async function getAvailability(signal) {
+  const response = await fetch(`${API_BASE_URL}/rooms/availability`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`/api/rooms/availability responded with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Load the plain room catalogue: rooms with the timetable slots that belong
+ * to them, without any derived availability.
+ *
+ * The dashboard no longer needs this (it reads /api/rooms/availability),
+ * but the helper stays so the catalogue endpoint remains easy to use from
+ * the browser console or a future view.
  *
  * @param {AbortSignal} [signal] lets the caller cancel the request on unmount.
  */

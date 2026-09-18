@@ -245,12 +245,8 @@
   border-left-color: var(--state-available);
 }
 
-.summary-card--occupied {
-  border-left-color: var(--state-occupied);
-}
-
-.summary-card--reserved {
-  border-left-color: var(--state-reserved);
+.summary-card--in-class {
+  border-left-color: var(--state-in-class);
 }
 
 /* --------------------------------------------------------------- results -- */
@@ -379,6 +375,12 @@
   font-size: 0.82rem;
 }
 
+.room-card__reason {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .room-card__facts {
   display: flex;
   flex-wrap: wrap;
@@ -467,6 +469,11 @@
 .legend__description {
   color: var(--text-muted);
   font-size: 0.82rem;
+}
+
+.legend__live {
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .badge {

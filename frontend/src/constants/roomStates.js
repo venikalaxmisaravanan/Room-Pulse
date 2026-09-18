@@ -1,8 +1,13 @@
-// The six room states the availability engine will produce later.
+// The room states the Stage 3 engine can produce.
 //
-// Nothing calculates these states yet — the dashboard only uses this list to
-// show the legend, so the colours are already fixed and consistent when the
-// engine starts returning real values.
+// AVAILABLE and IN_CLASS are real: they are derived from the timetable and
+// the current time by GET /api/rooms/availability.
+//
+// OCCUPIED, RESERVED, FULL and UNKNOWN are future states (occupancy sensors,
+// reservations, sensor freshness). They are defined here so the legend can
+// teach the colour vocabulary early, before the later stages start using it.
+
+export const ACTIVE_STATES = new Set(["AVAILABLE", "IN_CLASS"]);
 
 export const ROOM_STATES = [
   {

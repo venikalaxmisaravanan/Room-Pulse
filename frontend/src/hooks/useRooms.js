@@ -3,12 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 import { getRooms } from "../api/client.js";
 
 /**
- * Loads the room catalogue from /api/rooms, and lets the user retry after a
- * failure (for example when the backend was not running yet).
+ * Loads the plain room catalogue from /api/rooms (rooms + timetable, no
+ * derived availability), and lets the user retry after a failure.
  *
- * The rooms do not change while the page is open, so one request is enough for
- * this stage. When the availability engine and the occupancy simulator exist,
- * this hook is where the WebSocket connection will live.
+ * The dashboard currently reads /api/rooms/availability instead, so this
+ * hook is unused — it stays as a tiny documented helper for the browser
+ * console or a future catalogue view.
  *
  * @returns {{
  *   status: "loading" | "ready" | "error",
