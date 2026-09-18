@@ -382,6 +382,25 @@
   line-height: 1.5;
 }
 
+.room-card__explanation {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.room-card__explanation strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.room-card__why {
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .room-card__facts {
   display: flex;
   flex-wrap: wrap;

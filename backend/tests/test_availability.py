@@ -16,6 +16,8 @@ from app.services.availability import (
     decide,
     find_active_slot,
 )
+from app.services.availability_service import _reason_code
+from app.services.sensor_freshness import ReadingFreshness
 
 ECON_SLOT = {
     "day_of_week": "Monday",
@@ -178,3 +180,14 @@ def test_engine_accepts_time_objects_as_well_as_strings():
 
     assert decide([slot], monday(12, 0)).state == IN_CLASS
     assert decide([slot], monday(13, 0)).state == AVAILABLE
+
+
+def test_reason_codes_describe_each_existing_engine_state():
+    fresh = ReadingFreshness("FRESH", 0, True, "fresh")
+    stale = ReadingFreshness("STALE", 90, False, "stale")
+
+    assert _reason_code(OCCUPIED, fresh) == "OCCUPIED"
+    assert _reason_code(IN_CLASS, fresh) == "IN_CLASS"
+    assert _reason_code(FULL, fresh) == "FULL"
+    assert _reason_code(AVAILABLE, fresh) == "AVAILABLE"
+    assert _reason_code("UNKNOWN", stale) == "SENSOR_STALE"

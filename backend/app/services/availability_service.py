@@ -23,6 +23,7 @@ from app.schemas.availability import (
     AvailabilityListResponse,
     OccupancyRead,
     RoomAvailabilityRead,
+    SensorFreshnessRead,
 )
 from app.services.availability import (
     AVAILABLE,
@@ -42,6 +43,15 @@ def _format_time(value) -> str:
     if hasattr(value, "strftime"):
         return value.strftime("%H:%M")
     return str(value)[:5]
+
+
+def _reason_code(state: str, freshness) -> str:
+    """Name the factual cause represented by the existing final state."""
+    if state == UNKNOWN:
+        if freshness.status == "STALE":
+            return "SENSOR_STALE"
+        return "SENSOR_MISSING"
+    return state
 
 
 def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
@@ -94,9 +104,16 @@ def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
                 room_type=room.room_type,
                 capacity=room.capacity,
                 state=decision.state,
+                reason_code=_reason_code(decision.state, freshness),
                 reason=decision.reason,
                 active_class=active_class,
                 occupancy=occupancy_payload,
+                sensor_freshness=SensorFreshnessRead(
+                    status=freshness.status,
+                    age_seconds=freshness.age_seconds,
+                    fresh=freshness.fresh,
+                    sensor_note=freshness.sensor_note,
+                ),
                 timetable=[
                     {
                         "id": slot.id,

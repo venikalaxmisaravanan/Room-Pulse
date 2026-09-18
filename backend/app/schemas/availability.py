@@ -23,6 +23,15 @@ class ActiveClassRead(BaseModel):
     course_name: str
 
 
+class SensorFreshnessRead(BaseModel):
+    """The freshness verdict used when the room state was evaluated."""
+
+    status: str
+    age_seconds: int
+    fresh: bool
+    sensor_note: str
+
+
 class RoomAvailabilityRead(BaseModel):
     """One room plus the engine's decision about it right now."""
 
@@ -35,9 +44,11 @@ class RoomAvailabilityRead(BaseModel):
     room_type: str
     capacity: int
     state: str
+    reason_code: str
     reason: str
     active_class: ActiveClassRead | None = None
     occupancy: OccupancyRead | None = None
+    sensor_freshness: SensorFreshnessRead | None = None
     timetable: list[dict] = []
 
 
