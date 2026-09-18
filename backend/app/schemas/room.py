@@ -1,8 +1,10 @@
 """Response schemas for the room catalogue.
 
 These describe the exact JSON the dashboard receives. Notice there is no
-availability/status field anywhere: that value does not exist yet, and inventing
-one here would make the API lie about what it knows.
+availability/status/occupancy field anywhere in this file: those values
+are derived later, in
+`GET /api/rooms/availability` (timetable + occupancy), and they are
+never stored in SQLite.
 """
 
 from datetime import time

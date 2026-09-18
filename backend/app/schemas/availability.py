@@ -5,6 +5,8 @@ state is computed from its timetable and the evaluated moment, then returned
 with a human-readable reason so the dashboard can explain itself.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
@@ -35,7 +37,21 @@ class RoomAvailabilityRead(BaseModel):
     state: str
     reason: str
     active_class: ActiveClassRead | None = None
+    occupancy: OccupancyRead | None = None
     timetable: list[dict] = []
+
+
+class OccupancyRead(BaseModel):
+    """The simulated occupancy reading attached to one room in the availability
+    response. Transient sensor input, never stored in SQLite."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    occupancy: int
+    capacity: int
+    scenario: str
+    timestamp: datetime
+    simulated: bool = True
 
 
 class AvailabilityListResponse(BaseModel):
@@ -45,4 +61,6 @@ class AvailabilityListResponse(BaseModel):
     count: int
     available_count: int
     in_class_count: int
+    occupied_count: int
+    full_count: int
     rooms: list[RoomAvailabilityRead]

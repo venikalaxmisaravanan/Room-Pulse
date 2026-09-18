@@ -1,29 +1,38 @@
-"""Deterministic availability engine for RoomPulse (Stage 3).
+"""Deterministic availability engine for RoomPulse (Stage 4).
 
-This is the "brain" of RoomPulse in its simplest form. It answers one question:
+This is the "brain" of RoomPulse. It answers one question:
 
     "Can this room actually be used right now?"
 
-For Stage 3 the engine only knows two things:
+The engine now knows three things:
 
-1. the room's timetable slots, and
-2. the moment we are asking about.
+1. the room's timetable slots,
+2. the moment we are asking about, and
+3. the simulated occupancy reading for the room (people detected inside).
 
-That is enough for exactly two states:
+That produces four states with this explicit precedence (checked top-down):
 
-- IN_CLASS  -> a timetable slot for that room is currently active.
-- AVAILABLE -> no timetable class is currently in session.
+1. FULL      -> occupancy has reached room capacity. Nobody else fits,
+   regardless of what the timetable says.
+2. IN_CLASS  -> a timetable slot is currently active. The class wins over a
+   headcount: a scheduled class owns the room even if the sensor has not
+   caught up yet.
+3. OCCUPIED  -> people are physically detected (occupancy > 0) while no
+   class is scheduled. The room looks free on paper but is not free in fact.
+4. AVAILABLE -> no class scheduled and nobody detected.
 
-Occupancy sensors, reservations, sensor freshness and WebSocket updates do not
-exist yet, so OCCUPIED / RESERVED / FULL / UNKNOWN are *not* produced here.
-They are listed as FUTURE_STATES below so later stages can reuse the same
-vocabulary without pretending Stage 3 knows more than it does.
+OCCUPIED is deliberately defined as "people present *outside* a scheduled
+class". When a class is in session, IN_CLASS already explains the room, so
+OCCUPIED never needs to compete with it.
+
+RESERVED and UNKNOWN are still future vocabulary (reservations, sensor
+freshness in later stages); the engine below never returns them.
 
 Design rules this module follows:
 
 - The core function `decide()` is a pure function: it never reads the clock,
-  the database or any global state. The caller passes `now` in, which makes
-  the function deterministic and easy to test with fixed datetimes.
+  the database or any global state. The caller passes `now` (and the
+  occupancy) in, which makes the function deterministic and easy to test.
 - Boundary convention: start time is inclusive, end time is exclusive.
   A class from 11:30 to 13:00 is active at 11:30 but not at exactly 13:00.
 - Weekday mapping is explicit: Python's ``datetime.weekday()`` (Monday == 0)
@@ -37,14 +46,16 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Iterable, Protocol
 
-# States this stage actually produces.
-AVAILABLE = "AVAILABLE"
+# States this stage produces, in precedence order (highest first).
+FULL = "FULL"
 IN_CLASS = "IN_CLASS"
+OCCUPIED = "OCCUPIED"
+AVAILABLE = "AVAILABLE"
 
-# States reserved for later stages (occupancy simulator, reservations,
-# sensor freshness). Listed here only so the whole project shares one
-# vocabulary; the engine below never returns them.
-FUTURE_STATES = ("OCCUPIED", "RESERVED", "FULL", "UNKNOWN")
+# States reserved for later stages (reservations, sensor freshness). Listed
+# here only so the whole project shares one vocabulary; the engine below
+# never returns them.
+FUTURE_STATES = ("RESERVED", "UNKNOWN")
 
 # Monday-first, matching datetime.weekday() where Monday == 0.
 # Sunday is included so "different weekday -> AVAILABLE" is well defined.
@@ -149,26 +160,63 @@ def find_active_slot(
 
 
 def decide(
-    slots: Iterable[SlotLike | dict], now: datetime
+    slots: Iterable[SlotLike | dict],
+    now: datetime,
+    occupancy: int = 0,
+    capacity: int = 0,
 ) -> AvailabilityDecision:
-    """Decide AVAILABLE vs IN_CLASS for one room's slots at one moment.
+    """Decide FULL / IN_CLASS / OCCUPIED / AVAILABLE for one room at ``now``.
 
-    ``slots`` is the room's timetable (possibly empty); ``now`` is the moment
-    being evaluated. A room with no active slot is AVAILABLE — an empty
-    timetable never means "busy".
+    ``slots`` is the room's timetable (possibly empty); ``occupancy`` is the
+    simulated headcount (defaults to 0 so old Stage 3 calls keep working);
+    ``capacity`` is the room's seat count. Precedence, checked top-down:
+
+    1. FULL when 0 < capacity <= occupancy (occupancy is clamped into range
+       first, so a weird input can never produce FULL by accident);
+    2. IN_CLASS when a timetable slot covers ``now``;
+    3. OCCUPIED when occupancy > 0 but no class is scheduled;
+    4. AVAILABLE otherwise — including a room with no timetable at all.
     """
+    occupancy = max(0, occupancy)
+    if capacity > 0:
+        occupancy = min(occupancy, capacity)
+
     active = find_active_slot(slots, now)
-    if active is None:
+    if capacity > 0 and occupancy >= capacity:
         return AvailabilityDecision(
-            state=AVAILABLE,
-            reason="No class is scheduled right now.",
+            state=FULL,
+            reason=(
+                f"The room is full ({occupancy}/{capacity} people)"
+                + (
+                    f" — {active.course_name} is in session."
+                    if active is not None
+                    else "."
+                )
+            ),
+            active_slot=active,
+        )
+    if active is not None:
+        return AvailabilityDecision(
+            state=IN_CLASS,
+            reason=(
+                f"{active.course_name} is in progress "
+                f"until {active.end_time.strftime('%H:%M')}."
+            ),
+            active_slot=active,
+        )
+    if occupancy > 0:
+        return AvailabilityDecision(
+            state=OCCUPIED,
+            reason=(
+                f"{occupancy} "
+                f"{'person' if occupancy == 1 else 'people'} "
+                "detected in the room (simulated sensor), "
+                "no class is scheduled."
+            ),
             active_slot=None,
         )
     return AvailabilityDecision(
-        state=IN_CLASS,
-        reason=(
-            f"{active.course_name} is in progress "
-            f"until {active.end_time.strftime('%H:%M')}."
-        ),
-        active_slot=active,
+        state=AVAILABLE,
+        reason="No class is scheduled and the room looks empty.",
+        active_slot=None,
     )
