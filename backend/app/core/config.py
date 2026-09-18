@@ -39,3 +39,25 @@ CORS_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+
+# Stage 5 (sensor freshness): how old an occupancy reading can be before RoomPulse
+# stops trusting it. The value is in seconds and can be overridden with
+# ROOMPULSE_SENSOR_FRESHNESS_SECONDS. For the prototype a small value makes
+# freshness easy to demonstrate deterministically; the dashboard uses "?at="
+# timestamps to reproduce stale readings without waiting around.
+SENSOR_FRESHNESS_SECONDS = int(
+    os.getenv("ROOMPULSE_SENSOR_FRESHNESS_SECONDS", "30")
+)
+
+__all__ = [
+    "APP_NAME",
+    "APP_DESCRIPTION",
+    "APP_VERSION",
+    "API_PREFIX",
+    "BACKEND_DIR",
+    "CORS_ORIGINS",
+    "DATABASE_PATH",
+    "DATABASE_URL",
+    "ENVIRONMENT",
+    "SENSOR_FRESHNESS_SECONDS",
+]
