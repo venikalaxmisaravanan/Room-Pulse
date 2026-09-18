@@ -9,6 +9,7 @@ one giant route file into a mess.
 """
 
 from app.api.routes.availability import router as availability_router
+from app.api.routes.find import router as find_router
 from app.api.routes.health import router as health_router
 from app.api.routes.occupancy import router as occupancy_router
 from app.api.routes.rooms import router as rooms_router
@@ -16,6 +17,7 @@ from app.api.routes.ws import router as ws_router
 
 __all__ = [
     "availability_router",
+    "find_router",
     "health_router",
     "occupancy_router",
     "rooms_router",

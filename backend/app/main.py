@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     availability_router,
+    find_router,
     health_router,
     occupancy_router,
     rooms_router,
@@ -66,6 +67,7 @@ app.add_middleware(
 app.include_router(health_router, prefix=API_PREFIX)
 app.include_router(rooms_router, prefix=API_PREFIX)
 app.include_router(availability_router, prefix=API_PREFIX)
+app.include_router(find_router, prefix=API_PREFIX)
 app.include_router(occupancy_router, prefix=API_PREFIX)
 app.include_router(ws_router, prefix=API_PREFIX)
 
