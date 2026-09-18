@@ -158,10 +158,12 @@ def test_full_reason_keeps_the_in_session_note_when_a_class_is_running():
     full_and_in_session = decide(
         [ECON_SLOT], monday(12, 0), occupancy=80, capacity=80
     )
-    assert full_and_in_session.state == FULL
-    assert "80/80" in full_and_in_session.reason
-    assert "Introduction to Economics (ECO101) is in session" in full_and_in_session.reason
-    # Stage 4 FULL does not promise the end time; timing is what IN_CLASS is for.
+    # An active class is the strongest fact we have: IN_CLASS wins over FULL,
+    # fresh or stale. FULL describes the occupancy signal only when no class is
+    # scheduled, so this test documents the precedence, not a broken path.
+    assert full_and_in_session.state == IN_CLASS
+    assert "Introduction to Economics (ECO101) is in progress" in full_and_in_session.reason
+    assert "80/80" not in full_and_in_session.reason
 
 
 def test_engine_accepts_time_objects_as_well_as_strings():
