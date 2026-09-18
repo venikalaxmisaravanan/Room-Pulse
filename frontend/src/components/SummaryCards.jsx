@@ -1,38 +1,53 @@
-// The three headline numbers the dashboard will show.
+// The two headline numbers the dashboard shows.
+//
+// These are the real counts returned by GET /api/rooms/availability at the
+// evaluated moment — the number of rooms whose timetable says IN_CLASS,
+// and the number with nothing scheduled right now (AVAILABLE).
+// They are not occupancy statistics: with no sensors yet, RoomPulse cannot
+// know whether an AVAILABLE room is actually empty.
 // `tone` matches the room-state colours defined in constants/roomStates.js.
 
 const SUMMARY_CARDS = [
-  { id: "available", label: "Available", tone: "available", hint: "Free to use now" },
-  { id: "occupied", label: "Occupied", tone: "occupied", hint: "In use, no class" },
-  { id: "reserved", label: "Reserved", tone: "reserved", hint: "Held for later" },
+  { id: "available", label: "Available", tone: "available", hint: "No class scheduled" },
+  { id: "in-class", label: "In class", tone: "in-class", hint: "Timetable in session" },
 ];
 
 /**
- * Summary cards for Available / Occupied / Reserved.
+ * Summary cards for Available / In class.
  *
- * The values stay em dashes: counting rooms needs the availability engine, and
- * the engine does not exist yet. Printing 0 (or a made-up number) would claim
- * knowledge RoomPulse does not have.
+ * The values come from the availability endpoint. While the data is loading
+ * (or when it failed) an em dash is shown instead of a number, because
+ * printing 0 would claim knowledge RoomPulse does not have yet.
  */
-export default function SummaryCards() {
+export default function SummaryCards({ availableCount, inClassCount }) {
+  const values = { available: availableCount, "in-class": inClassCount };
+
   return (
     <section className="summary" aria-label="Room status summary">
-      {SUMMARY_CARDS.map((card) => (
-        <article
-          key={card.id}
-          className={`summary-card summary-card--${card.tone}`}
-        >
-          <p className="summary-card__label">{card.label}</p>
-          <p
-            className="summary-card__value"
-            title="Counted by the availability engine, which is not implemented yet"
-            aria-label={`${card.label}: not calculated yet`}
+      {SUMMARY_CARDS.map((card) => {
+        const value = values[card.id];
+        const display = value === null || value === undefined ? "—" : String(value);
+        const accessible =
+          value === null || value === undefined
+            ? `${card.label}: not calculated yet`
+            : `${card.label}: ${value}`;
+        return (
+          <article
+            key={card.id}
+            className={`summary-card summary-card--${card.tone}`}
           >
-            —
-          </p>
-          <p className="summary-card__hint">{card.hint}</p>
-        </article>
-      ))}
+            <p className="summary-card__label">{card.label}</p>
+            <p
+              className="summary-card__value"
+              title="Derived from the timetable by the availability engine"
+              aria-label={accessible}
+            >
+              {display}
+            </p>
+            <p className="summary-card__hint">{card.hint}</p>
+          </article>
+        );
+      })}
     </section>
   );
 }

@@ -2,17 +2,33 @@ import RoomCard from "./RoomCard.jsx";
 import StatusLegend from "./StatusLegend.jsx";
 
 /** The sentence in the panel header, which changes with the data situation. */
-function describeResults({ status, totalRooms, shownCount }) {
+function describeResults({ status, totalRooms, shownCount, evaluatedAt }) {
   if (status === "loading") {
-    return "Loading the room catalogue from /api/rooms …";
+    return "Loading current availability from /api/rooms/availability …";
   }
   if (status === "error") {
-    return "Room catalogue unavailable.";
+    return "Availability unavailable.";
   }
   if (totalRooms === 0) {
     return "The room catalogue is empty.";
   }
-  return `${shownCount} of ${totalRooms} rooms shown — every room is UNKNOWN until the availability engine exists.`;
+  const shown = `${shownCount} of ${totalRooms} rooms shown`;
+  if (evaluatedAt) {
+    return `${shown} · evaluated at ${formatEvaluatedAt(evaluatedAt)}.`;
+  }
+  return `${shown} · states derived from the timetable.`;
+}
+
+/** "2026-09-21T12:00:00" -> "Mon 12:00" for the panel header. */
+function formatEvaluatedAt(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value.slice(0, 16).replace("T", " ");
+  }
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${days[date.getDay()]} ${hours}:${minutes}`;
 }
 
 /** The three data situations (loading, failure, empty) plus the room grid. */
@@ -21,7 +37,7 @@ function ResultsBody({ rooms, totalRooms, status, error, onRetry }) {
     return (
       <div className="data-state">
         <h3 className="data-state__title">Loading rooms…</h3>
-        <p className="data-state__body">Waiting for /api/rooms to answer.</p>
+        <p className="data-state__body">Waiting for /api/rooms/availability to answer.</p>
       </div>
     );
   }
@@ -29,9 +45,9 @@ function ResultsBody({ rooms, totalRooms, status, error, onRetry }) {
   if (status === "error") {
     return (
       <div className="data-state data-state--error" role="alert">
-        <h3 className="data-state__title">Could not load the room catalogue</h3>
+        <h3 className="data-state__title">Could not load room availability</h3>
         <p className="data-state__body">
-          The request to <code>/api/rooms</code> failed: {error}
+          The request to <code>/api/rooms/availability</code> failed: {error}
         </p>
         <p className="data-state__body">
           Check that the FastAPI backend is running on{" "}
@@ -79,17 +95,18 @@ function ResultsBody({ rooms, totalRooms, status, error, onRetry }) {
 }
 
 /**
- * The room results area: real rooms from SQLite once /api/rooms answers.
+ * The room results area: real AVAILABLE / IN_CLASS answers from the engine.
  *
  * The component never invents data. While loading it says so, if the request
- * fails it explains why, and each room card carries the UNKNOWN badge because
- * availability is not calculated yet.
+ * fails it explains why, and each room card carries the state the engine
+ * derived from that room's timetable at the evaluated moment.
  */
 export default function RoomResults({
   rooms,
   totalRooms,
   status,
   error,
+  evaluatedAt,
   onRetry,
 }) {
   return (
@@ -99,16 +116,18 @@ export default function RoomResults({
           Rooms
         </h2>
         <p className="panel__note">
-          {describeResults({ status, totalRooms, shownCount: rooms.length })}
+          {describeResults({ status, totalRooms, shownCount: rooms.length, evaluatedAt })}
         </p>
       </div>
 
       {status === "ready" && totalRooms > 0 && (
         <p className="results__notice">
-          <strong>UNKNOWN is intentional.</strong> These rooms come from the
-          SQLite catalogue, but the availability engine — timetable +
-          occupancy + reservations + capacity + sensor freshness — is a later
-          stage, so RoomPulse does not yet know which rooms you can use.
+          <strong>Derived, not stored.</strong> Each badge comes from the
+          timetable at the evaluated moment: a room with a class in session
+          is <strong>In class</strong>, otherwise it is{" "}
+          <strong>Available</strong>. AVAILABLE means “no class scheduled” —
+          RoomPulse has no occupancy sensors yet, so it cannot promise the
+          room is actually empty.
         </p>
       )}
 

@@ -31,20 +31,23 @@ Real-time student dashboard (with an explanation for every state)
 ```
 
 Because the state is computed from sources, the dashboard can also *explain
-itself* ("in class until 11:30, sensor stale for 9 minutes"), and stale or
-conflicting data becomes `UNKNOWN` instead of a confidently wrong answer.
+itself* ("Introduction to Economics (ECO101) is in progress until 13:00"),
+and later, when sensors arrive, stale or conflicting data can become
+`UNKNOWN` instead of a confidently wrong answer.
 
-**Today the engine does not exist**, so the dashboard deliberately shows
-`UNKNOWN` for every room. That is a statement about the system, not a placeholder
-for missing data: the timetable is real, but nothing turns it into "can I use
-this room right now?" yet.
+**Stage 3 derives two states from the timetable.** Every badge on the
+dashboard now comes from `GET /api/rooms/availability`, which compares each
+room's timetable against the current time: a room with a class in session is
+`IN_CLASS`, otherwise it is `AVAILABLE`. `AVAILABLE` means "no class is
+scheduled right now" — not "the room is definitely empty", because
+occupancy sensors do not exist yet.
 
 ## Planned architecture
 
 | Layer | Choice | Status |
 | --- | --- | --- |
-| Frontend | React (Vite, plain JavaScript) | Stage 2 — dashboard reads real rooms |
-| Backend | Python + FastAPI | Stage 2 — `/api/health`, `/api/rooms` |
+| Frontend | React (Vite, plain JavaScript) | Stage 3 — dashboard reads derived availability |
+| Backend | Python + FastAPI | Stage 3 — `/api/health`, `/api/rooms`, `/api/rooms/availability` |
 | Database | SQLite + SQLAlchemy | Stage 2 — rooms + timetable slots |
 | Simulation | Python | Later — occupancy simulator emitting sensor readings |
 | Real-time | WebSocket | Later — pushes room states to the dashboard |
@@ -55,19 +58,20 @@ RoomPulse/
 │   ├── app/
 │   │   ├── main.py            FastAPI app, CORS, /api router mounting
 │   │   ├── core/              config.py (paths, env) + database.py (engine, Base, get_db)
-│   │   ├── api/routes/        health.py, rooms.py  (one file per concern)
+│   │   ├── api/routes/        health.py, rooms.py, availability.py  (one file per concern)
 │   │   ├── models/            room.py, timetable.py  (SQLAlchemy tables)
-│   │   ├── schemas/           health.py, room.py  (pydantic response shapes)
-│   │   ├── services/          room_service.py  (read-only reads + sorting)
+│   │   ├── schemas/           health.py, room.py, availability.py  (pydantic response shapes)
+│   │   ├── services/          room_service.py (reads), availability.py (pure engine),
+│   │   │                      availability_service.py (evaluate the catalogue)
 │   │   └── db/                seed_data.py (hand-written data), init_db.py (create + seed)
-│   ├── tests/                 pytest tests for the models and the API
+│   ├── tests/                 pytest tests for the models, the API and the engine
 │   └── requirements.txt       fastapi, uvicorn, SQLAlchemy  (+ requirements-dev.txt: pytest, httpx)
 └── frontend/
     └── src/
         ├── api/client.js          one place for every backend call
-        ├── hooks/                 useBackendHealth.js, useRooms.js
+        ├── hooks/                 useBackendHealth.js, useRooms.js, useAvailability.js
         ├── utils/roomFilters.js   pure filtering helpers
-        ├── constants/             roomStates.js (the six future states)
+        ├── constants/             roomStates.js (live + future states)
         └── components/            HeaderBar, FiltersBar, SummaryCards, RoomResults, RoomCard, StatusLegend
 ```
 
@@ -179,18 +183,89 @@ deterministic; a test asserts that `/api/rooms` only exposes `GET`.
 ```
 
 Timetable slots are nested per room (no joining in the frontend) and sorted
-Monday-first, then by start time. There is **no status/availability field** in
-the payload — the API only reports what it actually knows.
+Monday-first, then by start time. `GET /api/rooms` carries **no
+status/availability field** — the catalogue only reports what it actually
+knows.
+
+### `GET /api/rooms/availability` (stage 3 — derived, never stored)
+
+Read-only. The route loads the seeded rooms from SQLite, stamps one
+`evaluated_at` moment, evaluates every room with
+`decide(slots, now)` from `backend/app/services/availability.py`, and returns
+the answer. Capacity is carried through untouched for later stages.
+
+```json
+{
+  "evaluated_at": "2026-09-21T12:00:00",
+  "count": 9,
+  "available_count": 7,
+  "in_class_count": 2,
+  "rooms": [
+    {
+      "id": 7,
+      "code": "BS-104",
+      "name": "Lecture Hall BS-104",
+      "building": "Business Block",
+      "room_type": "Classroom",
+      "capacity": 120,
+      "state": "IN_CLASS",
+      "reason": "Introduction to Economics (ECO101) is in progress until 13:00.",
+      "active_class": {
+        "day_of_week": "Monday",
+        "start_time": "11:30",
+        "end_time": "13:00",
+        "course_name": "Introduction to Economics (ECO101)"
+      },
+      "timetable": [ "...all slots for context..." ]
+    }
+  ]
+}
+```
+
+An optional `?at=2026-09-21T12:00:00` query parameter evaluates a given ISO
+moment instead of "now" (handy for demos and debugging); the dashboard omits
+it so it always shows the live answer. A test asserts the API exposes only
+`GET` on `/api/health`, `/api/rooms` and `/api/rooms/availability`.
+
+## Availability engine (stage 3 — the current stage)
+
+The "brain" is a small deterministic function in
+`backend/app/services/availability.py`:
+
+```
+decide(room_timetable_slots, now) -> (state, reason, active_slot)
+```
+
+Rules, in plain language:
+
+1. Find today's weekday name from the datetime (explicit Monday-first table,
+   Sunday included) and look only at slots for that day.
+2. A slot is active when `start_time <= now < end_time` — start inclusive,
+   end exclusive. A class 11:30–13:00 is in session at 11:30 but the room is
+   AVAILABLE again at exactly 13:00.
+3. If a slot is active → `IN_CLASS`, with a reason naming the course and its
+   end time. If overlapping slots were ever active at once, the earliest
+   start wins so the answer stays deterministic.
+4. Otherwise → `AVAILABLE` ("No class is scheduled right now."). A room with
+   no timetable is always AVAILABLE.
+
+The function never reads the clock, the database or globals — the caller
+passes `now` in, so tests use fixed datetimes and never depend on the machine
+clock. Times are local wall-clock times with no timezone handling yet,
+consistent with the seed data.
 
 ## Dashboard behaviour
 
-- **Room cards** show the code, name, building, type, capacity and the prototype
-  timetable (first three sessions, then "+n more").
-- **Every card shows the `UNKNOWN` badge**, plus a notice above the grid
-  explaining that `UNKNOWN` is intentional until the availability engine exists.
-- **Summary cards** (Available / Occupied / Reserved) still show `—`. Counting
-  rooms would require the engine; printing `0` would be a claim RoomPulse cannot
-  back up.
+- **Room cards** show the code, name, the real badge (`Available` /
+  `In class`), the engine's reason sentence, building, type, capacity and
+  the prototype timetable (first three sessions, then "+n more").
+- **Summary cards** (Available / In class) show the real
+  `available_count` / `in_class_count` from the same availability response,
+  so the headline numbers can never disagree with the cards. While loading
+  (or after a failure) they show `—`, never an invented `0`.
+- **AVAILABLE means "no class scheduled"**, not "definitely empty":
+  RoomPulse has no occupancy sensors yet, and a notice above the grid says
+  so.
 - **Filters work**: building, room type and minimum capacity filter the loaded
   catalogue in the browser (9 rooms, so no extra endpoint is needed). They are
   disabled until the catalogue arrives, and a "Clear filters" button appears once
@@ -198,18 +273,21 @@ the payload — the API only reports what it actually knows.
 - **States that are handled**: loading, request failure (with the reason and a
   "Try again" button), empty catalogue, and "no rooms match your filters". No
   invented rooms are ever shown.
+- **Freshness**: the panel header shows the evaluated moment
+  (`evaluated at Mon 12:00`), and the page fetches once on load — no
+  polling, no WebSocket yet.
 
 ## MVP feature list
 
 Must-have:
 
-1. Multi-source availability engine — *not implemented*
-2. Deterministic conflict / precedence rules — *not implemented*
+1. Multi-source availability engine — *started: timetable source only (stage 3)*
+2. Deterministic conflict / precedence rules — *started: IN_CLASS beats AVAILABLE (stage 3)*
 3. Dynamic occupancy simulator — *not implemented*
 4. Sensor freshness / stale-data detection — *not implemented*
-5. Real-time dashboard — *partly: initial fetch only, no WebSocket yet*
-6. Explainable room status — *not implemented*
-7. Capacity-aware availability — *not implemented (capacity is displayed and filterable)*
+5. Real-time dashboard — *partly: one fetch of derived states on load, no WebSocket yet*
+6. Explainable room status — *started: every state ships a reason sentence (stage 3)*
+7. Capacity-aware availability — *not implemented (capacity is displayed, filterable and passed through)*
 8. "Find Me a Room" filtering / query — *partly: catalogue filters only, not availability-aware*
 
 If time permits later:
@@ -241,14 +319,28 @@ If time permits later:
   states.
 - Backend tests for the models, the seed data and the API (16 tests).
 
+### Stage 3 — deterministic timetable availability engine (done, current stage)
+
+- Pure function `decide(slots, now)` in `app/services/availability.py`:
+  `IN_CLASS` when a slot covers `now` (start inclusive, end exclusive),
+  otherwise `AVAILABLE`; explicit Monday-first weekday table; human-readable
+  reason with every answer.
+- Read-only `GET /api/rooms/availability` (plus an optional `?at=` ISO moment
+  for demos) returning `evaluated_at`, per-room state + reason + active class,
+  and `available_count` / `in_class_count`. Nothing is stored — the Room
+  table is unchanged.
+- Dashboard consumes the new endpoint: real badges, reason on every card,
+  real summary counts from the same response, evaluated moment in the header.
+  One fetch on load; no polling, no WebSocket.
+- Engine + API tests with fixed datetimes (36 tests total, all passing).
+
 ### Not implemented yet
 
-- The availability engine and all room-state logic (the six states exist only as
-  legend text).
-- Occupancy simulation, sensor freshness, capacity-aware availability logic.
+- Occupancy simulation, sensor freshness, capacity-aware availability logic
+  (`OCCUPIED`, `RESERVED`, `FULL`, `UNKNOWN` exist only as labelled legend
+  entries for later stages).
 - Reservations, concurrency-safe claims, post-class observation window.
 - Real-time WebSocket updates (the dashboard fetches once on load).
-- Explainable status ("in class until 11:30 …").
 - Authentication, student/faculty accounts, CCTV/computer vision, notifications,
   chatbot, mobile app — out of scope for this project.
 
@@ -286,6 +378,8 @@ Verify the backend:
 
 - Health check: <http://127.0.0.1:8000/api/health>
 - Room catalogue: <http://127.0.0.1:8000/api/rooms>
+- Current availability: <http://127.0.0.1:8000/api/rooms/availability>
+- Availability at a fixed moment (demo): <http://127.0.0.1:8000/api/rooms/availability?at=2026-09-21T12:00:00>
 - Interactive API docs: <http://127.0.0.1:8000/docs>
 
 ### 2. Frontend (React + Vite)
@@ -301,8 +395,10 @@ npm run dev
 Open <http://localhost:5173> and you should see:
 
 - a green **Live · backend connected** pill in the header,
-- 9 room cards from SQLite, each badged `UNKNOWN`,
-- `—` in the Available / Occupied / Reserved cards,
+- 9 room cards with real badges (`Available` / `In class`) and a reason on
+  each card,
+- real counts in the Available / In class cards (from the same response as
+  the badges),
 - working building / room type / minimum capacity filters,
 - and, if you stop the backend and reload, an error panel with a **Try again**
   button instead of empty room cards.
@@ -336,8 +432,8 @@ data the app uses, so they never touch your local `roompulse.db`.
 ## Roadmap
 
 1. ~~SQLite + room and timetable models, small deterministic seed data~~ (stage 2)
-2. Availability engine with explicit precedence rules + unit tests, using
-   timetable and capacity first; `UNKNOWN` for anything it cannot decide.
+2. ~~Timetable availability engine: decide(slots, now) → AVAILABLE / IN_CLASS
+   with reasons~~ (stage 3, this stage)
 3. Occupancy simulator emitting changing sensor readings + sensor freshness
    detection.
 4. WebSocket push of room states, so the dashboard is live instead of one fetch.
