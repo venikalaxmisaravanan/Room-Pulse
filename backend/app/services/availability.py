@@ -10,34 +10,38 @@ The engine now knows three things:
 2. the moment we are asking about, and
 3. the simulated occupancy reading for the room (people detected inside).
 
-That produces four states with this explicit precedence (checked top-down):
+That produces state vocabulary that now includes UNKNOWN and respects this
+precedence (checked top-down):
 
-1. FULL      -> occupancy has reached room capacity. Nobody else fits,
-   regardless of what the timetable says.
-2. IN_CLASS  -> a timetable slot is currently active. The class wins over a
-   headcount: a scheduled class owns the room even if the sensor has not
-   caught up yet.
-3. OCCUPIED  -> people are physically detected (occupancy > 0) while no
-   class is scheduled. The room looks free on paper but is not free in fact.
-4. AVAILABLE -> no class scheduled and nobody detected.
+1. IN_CLASS     -> a timetable slot is currently active. The class wins over
+   any occupancy signal, fresh or stale — an active class is the strongest fact
+   we have and sensor freshness never removes it.
+2. FULL         -> a trusted occupancy reading has reached room capacity.
+3. OCCUPIED    -> a trusted occupancy reading is positive while no class is
+   scheduled.
+4. UNKNOWN      -> no active class and the occupancy signal cannot be trusted
+   (stale or missing reading). RoomPulse refuses to pretend the room is free or
+   occupied when it does not have a dependable reading.
+5. AVAILABLE   -> no class scheduled and nobody detected / no reason to believe
+   otherwise.
 
-OCCUPIED is deliberately defined as "people present *outside* a scheduled
-class". When a class is in session, IN_CLASS already explains the room, so
-OCCUPIED never needs to compete with it.
-
-RESERVED and UNKNOWN are still future vocabulary (reservations, sensor
-freshness in later stages); the engine below never returns them.
+RESERVED is still future vocabulary (reservations); the engine below may also
+return UNKNOWN during sensor-freshness stages.
 
 Design rules this module follows:
 
-- The core function `decide()` is a pure function: it never reads the clock,
-  the database or any global state. The caller passes `now` (and the
-  occupancy) in, which makes the function deterministic and easy to test.
+- The core function `decide()` is a pure function with respect to the inputs it
+  is given: the caller supplies `now`, the occupancy number, and the freshness
+  verdict. Nothing in this file reaches the clock, the database or globals, so
+  it is easy to test with fixed datetimes.
 - Boundary convention: start time is inclusive, end time is exclusive.
   A class from 11:30 to 13:00 is active at 11:30 but not at exactly 13:00.
 - Weekday mapping is explicit: Python's ``datetime.weekday()`` (Monday == 0)
   is mapped through the WEEKDAY_NAMES tuple below, not through fragile
   string comparisons.
+- Freshness is an external concern. This module only asks ``freshness.fresh``
+  whether to trust the occupancy number; the actual staleness threshold and the
+  age computation live in ``app.services.sensor_freshness``.
 """
 
 from __future__ import annotations
@@ -46,16 +50,17 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Iterable, Protocol
 
-# States this stage produces, in precedence order (highest first).
+UNKNOWN = "UNKNOWN"
+
+AVAILABLE = "AVAILABLE"
 FULL = "FULL"
 IN_CLASS = "IN_CLASS"
 OCCUPIED = "OCCUPIED"
-AVAILABLE = "AVAILABLE"
 
-# States reserved for later stages (reservations, sensor freshness). Listed
+# States reserved for later stages (reservations). Listed
 # here only so the whole project shares one vocabulary; the engine below
-# never returns them.
-FUTURE_STATES = ("RESERVED", "UNKNOWN")
+# may also return UNKNOWN when the occupancy signal cannot be trusted.
+FUTURE_STATES = ("RESERVED",)
 
 # Monday-first, matching datetime.weekday() where Monday == 0.
 # Sunday is included so "different weekday -> AVAILABLE" is well defined.
@@ -164,37 +169,44 @@ def decide(
     now: datetime,
     occupancy: int = 0,
     capacity: int = 0,
+    freshness: "ReadingFreshness | None" = None,
 ) -> AvailabilityDecision:
-    """Decide FULL / IN_CLASS / OCCUPIED / AVAILABLE for one room at ``now``.
+    """Decide FULL / IN_CLASS / OCCUPIED / AVAILABLE / UNKNOWN for one room at
+    ``now``.
 
     ``slots`` is the room's timetable (possibly empty); ``occupancy`` is the
-    simulated headcount (defaults to 0 so old Stage 3 calls keep working);
-    ``capacity`` is the room's seat count. Precedence, checked top-down:
+    simulated headcount passed through from the simulator (defaults to 0 so
+    old calls keep working); ``capacity`` is the room's seat count.
 
-    1. FULL when 0 < capacity <= occupancy (occupancy is clamped into range
-       first, so a weird input can never produce FULL by accident);
-    2. IN_CLASS when a timetable slot covers ``now``;
-    3. OCCUPIED when occupancy > 0 but no class is scheduled;
-    4. AVAILABLE otherwise — including a room with no timetable at all.
+    ``freshness`` is an optional ``ReadingFreshness`` verdict from
+    ``app.services.sensor_freshness.assess_reading``. When the verdict says the
+    reading cannot be trusted (e.g. ``STALE`` or ``NO_READING``), the engine
+    stops treating the occupancy number as an authoritative fact and may return
+    ``UNKNOWN`` instead of OCCUPIED/AVAILABLE. **An active timetable slot is
+    never overruled by freshness**: if a class is in session the room is
+    ``IN_CLASS`` regardless of how stale the sensor is.
+
+    Precedence, checked top-down:
+
+    1. IN_CLASS when a timetable slot covers ``now`` (class wins over any
+       occupancy signal, fresh or stale);
+    2. FULL when 0 < capacity <= occupancy, and the occupancy signal is trusted
+       (fresh / present);
+    3. OCCUPIED when occupancy > 0 and the occupancy signal is trusted;
+    4. UNKNOWN when there is no active class and the occupancy signal cannot be
+       trusted (stale reading or missing reading);
+    5. AVAILABLE otherwise — no class scheduled and nobody detected / no signal
+       to the contrary.
     """
     occupancy = max(0, occupancy)
     if capacity > 0:
         occupancy = min(occupancy, capacity)
 
     active = find_active_slot(slots, now)
-    if capacity > 0 and occupancy >= capacity:
-        return AvailabilityDecision(
-            state=FULL,
-            reason=(
-                f"The room is full ({occupancy}/{capacity} people)"
-                + (
-                    f" — {active.course_name} is in session."
-                    if active is not None
-                    else "."
-                )
-            ),
-            active_slot=active,
-        )
+
+    # An active class owns the room independent of sensor freshness. That is the
+    # Stage 3 guarantee preserved here: a scheduled class is a stronger fact than
+    # a live headcount which may be stale.
     if active is not None:
         return AvailabilityDecision(
             state=IN_CLASS,
@@ -204,7 +216,30 @@ def decide(
             ),
             active_slot=active,
         )
-    if occupancy > 0:
+
+    # Trust the reading only when freshness says so. When it does not, drop the
+    # occupancy number as evidence and move to the stale / missing branch below.
+    trusted = freshness is None or freshness.fresh is True
+
+    occupancy = max(0, occupancy)
+    if capacity > 0:
+        occupancy = min(occupancy, capacity)
+
+    if trusted and capacity > 0 and occupancy >= capacity:
+        return AvailabilityDecision(
+            state=FULL,
+            reason=(
+                f"The room is full ({occupancy}/{capacity} people)"
+                + (
+                    f" — {active.course_name} is in session."
+                    if False  # active is None here by this point
+                    else "."
+                )
+            ),
+            active_slot=None,
+        )
+
+    if trusted and occupancy > 0:
         return AvailabilityDecision(
             state=OCCUPIED,
             reason=(
@@ -215,8 +250,49 @@ def decide(
             ),
             active_slot=None,
         )
+
+    # No active class, and the occupancy signal is not dependable. This is the
+    # case freshness exists to catch: a stale or missing reading should not
+    # silently turn into AVAILABLE (which claims the room is free) or OCCUPIED
+    # (which pretends we know headcount).
+    if not trusted:
+        if freshness is None or freshness.status == "NO_READING":
+            return AvailabilityDecision(
+                state=UNKNOWN,
+                reason=(
+                    "No class is scheduled and the sensor reading is missing, "
+                    "so RoomPulse cannot tell whether the room is usable right now."
+                ),
+                active_slot=None,
+            )
+        return AvailabilityDecision(
+            state=UNKNOWN,
+            reason=(
+                "No class is scheduled and the sensor reading is stale, "
+                "so RoomPulse is not sure whether the room is usable right now."
+            ),
+            active_slot=None,
+        )
+
     return AvailabilityDecision(
         state=AVAILABLE,
         reason="No class is scheduled and the room looks empty.",
         active_slot=None,
     )
+
+
+__all__ = [
+    "AVAILABLE",
+    "FULL",
+    "IN_CLASS",
+    "OCCUPIED",
+    "UNKNOWN",
+    "AvailabilityDecision",
+    "FUTURE_STATES",
+    "SlotLike",
+    "SlotView",
+    "WEEKDAY_NAMES",
+    "decide",
+    "find_active_slot",
+    "ReadingFreshness",
+]
