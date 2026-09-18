@@ -1,8 +1,8 @@
 """RoomPulse API entry point.
 
-Start it with (from the ``backend`` folder):
-
-    uvicorn app.main:app --reload --port 8000
+``/api/ws`` is mounted in Stage 6 so the dashboard can stream live
+availability snapshots. No background event loops are started before the first
+client connects.
 """
 
 import logging
@@ -16,6 +16,7 @@ from app.api.routes import (
     health_router,
     occupancy_router,
     rooms_router,
+    ws_router,
 )
 from app.core.config import (
     API_PREFIX,
@@ -65,6 +66,8 @@ app.add_middleware(
 app.include_router(health_router, prefix=API_PREFIX)
 app.include_router(rooms_router, prefix=API_PREFIX)
 app.include_router(availability_router, prefix=API_PREFIX)
+app.include_router(occupancy_router, prefix=API_PREFIX)
+app.include_router(ws_router, prefix=API_PREFIX)
 
 
 @app.get("/", include_in_schema=False)

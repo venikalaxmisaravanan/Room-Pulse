@@ -1,9 +1,8 @@
-import { useBackendHealth } from "../hooks/useBackendHealth.js";
-
 const STATUS_TEXT = {
-  checking: "Connecting…",
-  online: "Live · backend connected",
-  offline: "Backend unreachable",
+  connecting: "Connecting",
+  connected: "Connected",
+  reconnecting: "Reconnecting",
+  disconnected: "Disconnected",
 };
 
 /**
@@ -13,15 +12,9 @@ const STATUS_TEXT = {
  * green only when FastAPI actually answered. Live room updates reuse this
  * slot in a later stage.
  */
-export default function HeaderBar() {
-  const { state, details, error } = useBackendHealth();
-
-  const detail =
-    state === "online" && details
-      ? `${details.service} v${details.version} · ${details.environment}`
-      : state === "offline"
-        ? error
-        : "Checking /api/health …";
+export default function HeaderBar({ connectionState }) {
+  const state = connectionState ?? "disconnected";
+  const detail = state === "connected" ? "Live availability snapshots" : "Live feed /api/ws";
 
   return (
     <header className="header">

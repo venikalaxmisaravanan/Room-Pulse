@@ -134,6 +134,9 @@ def test_readings_are_sequential_for_the_same_room(client):
         "/api/health",
         "/api/rooms",
         "/api/rooms/availability",
+        "/api/rooms/occupancy",
     }
+    assert set(schema["paths"]["/api/health"]) == {"get"}
     assert set(schema["paths"]["/api/rooms/availability"]) == {"get"}
     assert set(schema["paths"]["/api/rooms"]) == {"get"}
+    assert set(schema["paths"]["/api/rooms/occupancy"]) == {"get"}

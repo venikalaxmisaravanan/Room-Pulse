@@ -23,7 +23,7 @@ Design rules:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Scenario names. ROOM_EMPTYING keeps the spec's vocabulary.
 NORMAL = "NORMAL"
@@ -86,6 +86,7 @@ class OccupancyReading:
 # Frozen readings for SENSOR_FAILURE rooms: room_id -> first-ever reading.
 # In-memory on purpose (sensor state is transient, not catalogue data).
 _FROZEN: dict[int, OccupancyReading] = {}
+_LIVE_NOW: datetime | None = None
 
 
 def assign_scenario(code: str) -> str:
@@ -117,6 +118,27 @@ def occupancy_for(code: str, capacity: int, scenario: str, now: datetime) -> int
 def reset_simulator() -> None:
     """Clear frozen SENSOR_FAILURE readings (tests and demos only)."""
     _FROZEN.clear()
+
+
+def init_occupancy_jsim_for_loop() -> None:
+    """Start the live simulator clock without changing its reading rules."""
+    global _LIVE_NOW
+    _LIVE_NOW = datetime.now()
+
+
+def advance_simulation_one_tick() -> None:
+    """Advance the existing deterministic simulator by one configured tick."""
+    global _LIVE_NOW
+    if _LIVE_NOW is None:
+        init_occupancy_jsim_for_loop()
+    _LIVE_NOW += timedelta(seconds=STEP_SECONDS)
+
+
+def current_evaluated_at() -> datetime:
+    """Return the live simulator's current evaluation moment."""
+    if _LIVE_NOW is None:
+        init_occupancy_jsim_for_loop()
+    return _LIVE_NOW
 
 
 def reading_for(
@@ -171,6 +193,9 @@ __all__ = [
     "OccupancyReading",
     "assign_scenario",
     "current_readings",
+    "current_evaluated_at",
+    "advance_simulation_one_tick",
+    "init_occupancy_jsim_for_loop",
     "occupancy_for",
     "reading_for",
     "reset_simulator",

@@ -117,5 +117,9 @@ def test_api_exposes_no_write_routes(client):
         "/api/health",
         "/api/rooms",
         "/api/rooms/availability",
+        "/api/rooms/occupancy",
     }
+    assert set(schema["paths"]["/api/health"]) == {"get"}
     assert set(schema["paths"]["/api/rooms"]) == {"get"}
+    assert set(schema["paths"]["/api/rooms/availability"]) == {"get"}
+    assert set(schema["paths"]["/api/rooms/occupancy"]) == {"get"}
