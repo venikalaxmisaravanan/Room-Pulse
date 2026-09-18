@@ -215,7 +215,79 @@ the answer. Capacity is carried through untouched for later stages.
         "start_time": "11:30",
         "end_time": "13:00",
         "course_name": "Introduction to Economics (ECO101)"
-      },
+      ### Internal design
+
+- `backend/app/api/routes/ws.py` is the single WebSocket endpoint at `/api/ws`.
+- `backend/app/services/wslive.py` holds the shared live loop: one simulator
+  tick, one `evaluate_catalogue_from_simulator` snapshot, one push per
+  connected client, one heartbeat stream, stop the loop when the last client
+  leaves.
+- The snapshot shape is identical to `GET /api/rooms/availability`; no new
+  route or message shape is introduced.
+- The dashboard never fetches again; it is updated by method calls from the
+  live loop, no page refresh required.
+- The simulator advances the occupancy scenario one deterministic tick per
+  loop iteration; the evaluator then merges occupancy + capacity + sensor
+  freshness + timetable into the current state, so the feed uses exactly the
+  same rules as the REST endpoint.
+
+### Connection lifecycle
+
+- First client opens the WebSocket → shared loop starts.
+- Any client opens → loop continues if it was stopped.
+- Last client leaves → loop stops, no background work when no one listens.
+- The live loop starts paused when no client is present, re-starts on next
+  client connect.
+
+### Live feed semantics
+
+- At every snapshot interval the loop:
+  1. advances the simulator by one tick (advancing scenario time),
+  2. calls `evaluate_catalogue_from_simulator` at the simulator's evaluated
+     time,
+  3. pushes that snapshot to every connected client,
+  4. sends a small heartbeat message so the browser knows the channel is alive.
+
+- Because the snapshot is taken *after* the tick, a brief state change can
+  appear in the next push for the same room, which is why the test leaves the
+  page open for 20 seconds and expects some rooms to change.
+
+### Status pill
+
+- `HeaderBar` uses `useBackendHealth` to show the REST connection status.
+- Stage 6 adds a second pill driven by the WebSocket hook:
+  - `checking` → `connected` → `reconnecting` → `disconnected`, matching the
+    same lifecycle vocabulary used by the REST pill.
+- The live pill is intentionally separate from the REST pill so the dashboard
+  can tell whether the API is reachable and whether the live feed is
+  connected independently.
+
+### Preserved behavior
+
+- Stage 2/3/4/5 REST endpoints, models, simulator, freshness rules, schemas
+  and priorities are unchanged.
+- The Room table still has no `available` or `current_status` column; the
+  live feed is just a streamed version of the existing derived response.
+- The database file is still created/cleaned per test; tests never touch the
+  real `roompulse.db`.
+- Tests that do not touch WebSocket still use the TestClient and the
+  temporary database; WebSocket tests use a separate `tests/test_ws.py` file
+  with a fresh temporary database per test for isolation.
+
+### Test inventory (final)
+
+- `tests/test_models.py` — Room and TimetableSlot model fields and seed-data
+  sanity.
+- `tests/test_availability.py` — deterministic availability engine rules.
+- `tests/test_availability_api.py` — `/api/rooms/availability` shape and
+  content, including the new occupancy/precedence/freshness features.
+- `tests/test_ws.py` — `/api/ws` lifecycle, snapshot shape parity, and a
+  short "leave open for 20 seconds" integration test that expects some state
+  to change.
+- `tests/test_rooms_api.py` — `/api/rooms` catalogue.
+- `tests/conftest.py` — shared fixtures; each test gets a fresh temporary
+  database.
+
       "timetable": [ "...all slots for context..." ]
     }
   ]
@@ -380,7 +452,9 @@ Verify the backend:
 - Room catalogue: <http://127.0.0.1:8000/api/rooms>
 - Current availability: <http://127.0.0.1:8000/api/rooms/availability>
 - Availability at a fixed moment (demo): <http://127.0.0.1:8000/api/rooms/availability?at=2026-09-21T12:00:00>
+- Current simulated occupancy: <http://127.0.0.1:8000/api/rooms/occupancy>
 - Interactive API docs: <http://127.0.0.1:8000/docs>
+- Live feed (browser WebSocket test): <http://127.0.0.1:8000/api/ws>
 
 ### 2. Frontend (React + Vite)
 
@@ -395,30 +469,19 @@ npm run dev
 Open <http://localhost:5173> and you should see:
 
 - a green **Live · backend connected** pill in the header,
-- 9 room cards with real badges (`Available` / `In class`) and a reason on
-  each card,
-- real counts in the Available / In class cards (from the same response as
-  the badges),
+- a **Live** status pill reflecting the WebSocket connection state,
+- 9 room cards with real badges (`Available` / `In class` / `Occupied` / `Full` /
+  `Unknown`) and a reason on each card,
+- real counts in the summary cards (from the same response as the badges),
 - working building / room type / minimum capacity filters,
 - and, if you stop the backend and reload, an error panel with a **Try again**
   button instead of empty room cards.
 
-`npm run build` produces a production build in `frontend/dist`.
-
-Development requests to `/api/...` are forwarded to `http://127.0.0.1:8000` by the
-Vite proxy configured in `frontend/vite.config.js`. The backend also allows the dev
-origin via CORS (`ROOMPULSE_CORS_ORIGINS`).
-
-### 3. Backend tests
-
-```powershell
-cd backend
-pip install -r requirements-dev.txt
-python -m pytest -q
-```
-
-The tests build a temporary SQLite database per test from the same models and seed
-data the app uses, so they never touch your local `roompulse.db`.
+When the live feed is connected, room states and counts update automatically
+without page refresh. Deliberately disconnect the page (reload, reload the
+window, disconnect the backend) and confirm that the Live status pill flips to
+**Configuring…**, then **Disconnected**, then **Reconnecting…** within a
+reasonable interval before the next live update lands.
 
 ## Configuration
 

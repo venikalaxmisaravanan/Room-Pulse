@@ -31,6 +31,7 @@ export default function App() {
     evaluatedAt,
     error,
     reload,
+    connectionState,
   } = useAvailability();
   const [filters, setFilters] = useState(EMPTY_FILTERS);
 
@@ -42,7 +43,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <HeaderBar />
+      <HeaderBar connectionState={connectionState} />
 
       <main className="app__main">
         <FiltersBar

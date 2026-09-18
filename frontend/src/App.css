@@ -83,27 +83,28 @@
   font-size: 0.72rem;
 }
 
-.status-pill--checking .status-pill__dot {
+.status-pill--connecting .status-pill__dot,
+.status-pill--reconnecting .status-pill__dot {
   background: var(--state-occupied);
   animation: pulse 1.4s ease-in-out infinite;
 }
 
-.status-pill--online {
+.status-pill--connected {
   border-color: rgba(34, 197, 94, 0.5);
   background: rgba(34, 197, 94, 0.12);
 }
 
-.status-pill--online .status-pill__dot {
+.status-pill--connected .status-pill__dot {
   background: var(--state-available);
   box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
 }
 
-.status-pill--offline {
+.status-pill--disconnected {
   border-color: rgba(239, 68, 68, 0.5);
   background: rgba(239, 68, 68, 0.12);
 }
 
-.status-pill--offline .status-pill__dot {
+.status-pill--disconnected .status-pill__dot {
   background: var(--state-full);
 }
 

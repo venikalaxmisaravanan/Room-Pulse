@@ -3,13 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getAvailability } from "../api/client.js";
 
 /**
- * Loads the current availability from /api/rooms/availability, and lets the
- * user retry after a failure (for example when the backend was not running).
- *
- * The engine evaluates the timetable once per request on the server, so one
- * request on page load is enough for this stage. There is no live sensor
- * stream yet, so there is deliberately no polling or WebSocket here —
- * this hook is where the WebSocket connection will live in a later stage.
+ * Loads the REST snapshot first, then replaces it with snapshots from /api/ws.
  *
  * @returns {{
  *   status: "loading" | "ready" | "error",
@@ -23,6 +17,7 @@ import { getAvailability } from "../api/client.js";
  */
 export function useAvailability() {
   const [attempt, setAttempt] = useState(0);
+  const [connectionState, setConnectionState] = useState("connecting");
   const [state, setState] = useState({
     status: "loading",
     rooms: [],
@@ -67,10 +62,51 @@ export function useAvailability() {
         }
       });
 
-    return () => controller.abort();
+    let socket;
+    let reconnectTimer;
+    let stopped = false;
+    let hasConnected = false;
+
+    const connect = () => {
+      if (stopped) return;
+      setConnectionState(hasConnected ? "reconnecting" : "connecting");
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      socket = new WebSocket(`${protocol}://${window.location.host}/api/ws`);
+      socket.onopen = () => {
+        hasConnected = true;
+        setConnectionState("connected");
+      };
+      socket.onmessage = ({ data }) => {
+        const payload = JSON.parse(data);
+        if (!payload.rooms) return;
+        setState({
+          status: "ready",
+          rooms: payload.rooms,
+          availableCount: payload.available_count ?? null,
+          inClassCount: payload.in_class_count ?? null,
+          evaluatedAt: payload.evaluated_at ?? null,
+          error: null,
+        });
+      };
+      socket.onclose = () => {
+        if (!stopped) {
+          setConnectionState(hasConnected ? "reconnecting" : "disconnected");
+          reconnectTimer = window.setTimeout(connect, 1000);
+        }
+      };
+      socket.onerror = () => socket.close();
+    };
+    connect();
+
+    return () => {
+      stopped = true;
+      controller.abort();
+      window.clearTimeout(reconnectTimer);
+      socket?.close();
+    };
   }, [attempt]);
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
 
-  return { ...state, reload };
+  return { ...state, reload, connectionState };
 }

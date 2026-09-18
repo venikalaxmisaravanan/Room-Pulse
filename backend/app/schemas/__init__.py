@@ -1,8 +1,9 @@
 """Pydantic models describing what the API sends and receives.
 
 Today that is the health response, the room catalogue and the derived
-availability answers. Reservation and occupancy schemas arrive with their
-stages.
+availability answers. The Stage 5 occupancy simulator and ``GET
+/api/rooms/occupancy`` are described by ``app/schemas/occupancy.py``.
+Reservation and occupancy schemas arrive with their stages.
 """
 
 from app.schemas.availability import (
