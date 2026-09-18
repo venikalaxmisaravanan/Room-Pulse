@@ -11,7 +11,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import availability_router, health_router, rooms_router
+from app.api.routes import (
+    availability_router,
+    health_router,
+    occupancy_router,
+    rooms_router,
+)
 from app.core.config import (
     API_PREFIX,
     APP_DESCRIPTION,
@@ -56,8 +61,7 @@ app.add_middleware(
 )
 
 # Every router is mounted under /api so the frontend has one predictable base.
-# Availability, occupancy and reservation routers are added here in the next
-# stages.
+# Reservation routers are added here in later stages.
 app.include_router(health_router, prefix=API_PREFIX)
 app.include_router(rooms_router, prefix=API_PREFIX)
 app.include_router(availability_router, prefix=API_PREFIX)
@@ -72,4 +76,6 @@ def root() -> dict[str, str]:
         "docs": "/docs",
         "health": f"{API_PREFIX}/health",
         "rooms": f"{API_PREFIX}/rooms",
+        "availability": f"{API_PREFIX}/rooms/availability",
+        "occupancy": f"{API_PREFIX}/rooms/occupancy",
     }

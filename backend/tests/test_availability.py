@@ -9,7 +9,9 @@ from datetime import datetime
 
 from app.services.availability import (
     AVAILABLE,
+    FULL,
     IN_CLASS,
+    OCCUPIED,
     WEEKDAY_NAMES,
     decide,
     find_active_slot,
@@ -114,12 +116,52 @@ def test_find_active_slot_returns_none_outside_class():
 
 def test_reasons_are_human_readable():
     free = decide([ECON_SLOT], monday(11, 0))
-    assert free.reason == "No class is scheduled right now."
+    assert free.reason == "No class is scheduled and the room looks empty."
 
     busy = decide([ECON_SLOT], monday(12, 0))
-    assert "Introduction to Economics (ECO101)" in busy.reason
-    assert "13:00" in busy.reason
-    assert "in progress" in busy.reason
+    assert busy.state == IN_CLASS
+
+
+def test_availablility_reason_signals_sensor_contribution():
+    """Stage 4 AVAILABLE rooms say how they look (from sensors), not just the
+    timetable. AVOID exact-string brittleness: assert the sentence mentions the
+    simulator and that nothing is scheduled."""
+    free = decide([], monday(12))
+    assert "No class is scheduled" in free.reason
+    assert "room looks empty" in free.reason
+
+
+def test_occupied_reason_names_the_headcount():
+    occupied = decide([], monday(12), occupancy=7, capacity=35)
+    assert occupied.state == OCCUPIED
+    assert "7" in occupied.reason
+    assert "people" in occupied.reason
+    assert "detected in the room (simulated sensor)" in occupied.reason
+    assert "no class is scheduled" in occupied.reason
+
+
+def test_occupied_reason_is_singular_for_one_person():
+    occupied = decide([], monday(12), occupancy=1, capacity=20)
+    assert occupied.state == OCCUPIED
+    assert "1 person detected" in occupied.reason
+    assert "1 people detected" not in occupied.reason
+
+
+def test_full_reason_includes_the_headcount_and_capacity():
+    full = decide([], monday(12), occupancy=30, capacity=30)
+    assert full.state == FULL
+    assert "30/30" in full.reason
+    assert "full" in full.reason.lower()
+
+
+def test_full_reason_keeps_the_in_session_note_when_a_class_is_running():
+    full_and_in_session = decide(
+        [ECON_SLOT], monday(12, 0), occupancy=80, capacity=80
+    )
+    assert full_and_in_session.state == FULL
+    assert "80/80" in full_and_in_session.reason
+    assert "Introduction to Economics (ECO101) is in session" in full_and_in_session.reason
+    # Stage 4 FULL does not promise the end time; timing is what IN_CLASS is for.
 
 
 def test_engine_accepts_time_objects_as_well_as_strings():

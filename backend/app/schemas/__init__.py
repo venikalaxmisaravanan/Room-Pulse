@@ -8,15 +8,20 @@ stages.
 from app.schemas.availability import (
     ActiveClassRead,
     AvailabilityListResponse,
+    OccupancyRead,
     RoomAvailabilityRead,
 )
 from app.schemas.health import HealthResponse
+from app.schemas.occupancy import OccupancyListResponse, OccupancyReadingRead
 from app.schemas.room import RoomListResponse, RoomRead, TimetableSlotRead
 
 __all__ = [
     "ActiveClassRead",
     "AvailabilityListResponse",
     "HealthResponse",
+    "OccupancyListResponse",
+    "OccupancyRead",
+    "OccupancyReadingRead",
     "RoomAvailabilityRead",
     "RoomListResponse",
     "RoomRead",

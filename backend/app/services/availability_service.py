@@ -1,9 +1,12 @@
 """Evaluate the whole catalogue with the availability engine.
 
 This keeps the FastAPI route thin: the route loads rooms and asks "what time
-is it?", this module turns each room's timetable into an AVAILABLE/IN_CLASS
-answer. Capacity is passed through untouched — Stage 3 has no occupancy
-data, so FULL cannot be decided yet.
+is it?", this module turns each room's timetable plus its simulated
+occupancy reading into a FULL / IN_CLASS / OCCUPIED / AVAILABLE answer.
+
+Occupancy is transient sensor input, not catalogue data: the readings are
+built in memory by ``app.services.occupancy`` and never stored in SQLite.
+The Room table still has no availability, occupancy or status columns.
 """
 
 from __future__ import annotations
@@ -17,9 +20,11 @@ from app.models import Room
 from app.schemas.availability import (
     ActiveClassRead,
     AvailabilityListResponse,
+    OccupancyRead,
     RoomAvailabilityRead,
 )
-from app.services.availability import AVAILABLE, IN_CLASS, decide
+from app.services.availability import AVAILABLE, FULL, IN_CLASS, OCCUPIED, decide
+from app.services.occupancy import current_readings
 from app.services.room_service import _slot_sort_key
 
 
@@ -31,13 +36,21 @@ def _format_time(value) -> str:
 
 
 def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
-    """Load every room, decide its state at ``now``, return the API payload."""
+    """Load every room, decide its state at ``now``, return the API payload.
+
+    The same ``now`` feeds both the timetable comparison and the simulator,
+    so the whole response describes one consistent moment.
+    """
     rooms = db.scalars(select(Room).order_by(Room.code)).all()
+    readings = {reading.code: reading for reading in current_readings(rooms, now)}
 
     results: list[RoomAvailabilityRead] = []
     for room in rooms:
         ordered_slots = sorted(room.timetable, key=_slot_sort_key)
-        decision = decide(ordered_slots, now)
+        reading = readings[room.code]
+        decision = decide(
+            ordered_slots, now, occupancy=reading.occupancy, capacity=room.capacity
+        )
 
         active_class = None
         if decision.active_slot is not None:
@@ -47,6 +60,14 @@ def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
                 end_time=_format_time(decision.active_slot.end_time),
                 course_name=decision.active_slot.course_name,
             )
+
+        occupancy_payload = OccupancyRead(
+            occupancy=reading.occupancy,
+            capacity=room.capacity,
+            scenario=reading.scenario,
+            timestamp=reading.timestamp,
+            simulated=True,
+        )
 
         results.append(
             RoomAvailabilityRead(
@@ -59,6 +80,7 @@ def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
                 state=decision.state,
                 reason=decision.reason,
                 active_class=active_class,
+                occupancy=occupancy_payload,
                 timetable=[
                     {
                         "id": slot.id,
@@ -72,14 +94,17 @@ def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
             )
         )
 
-    available_count = sum(1 for item in results if item.state == AVAILABLE)
-    in_class_count = sum(1 for item in results if item.state == IN_CLASS)
+    counts = {state: 0 for state in (AVAILABLE, IN_CLASS, OCCUPIED, FULL)}
+    for item in results:
+        counts[item.state] += 1
 
     return AvailabilityListResponse(
         evaluated_at=now,
         count=len(results),
-        available_count=available_count,
-        in_class_count=in_class_count,
+        available_count=counts[AVAILABLE],
+        in_class_count=counts[IN_CLASS],
+        occupied_count=counts[OCCUPIED],
+        full_count=counts[FULL],
         rooms=results,
     )
 
