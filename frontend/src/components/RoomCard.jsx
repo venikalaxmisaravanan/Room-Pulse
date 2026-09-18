@@ -16,6 +16,12 @@ function shortDay(day) {
   return day.slice(0, 3);
 }
 
+function formatAge(seconds) {
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"} ago`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+}
+
 function TimetableList({ slots }) {
   if (slots.length === 0) {
     return (
@@ -80,7 +86,7 @@ export default function RoomCard({ room }) {
         </span>
       </div>
 
-      <p className="room-card__reason">{room.reason}</p>
+      <StatusExplanation room={room} />
 
       <dl className="room-card__facts">
         <div className="fact">
@@ -102,5 +108,52 @@ export default function RoomCard({ room }) {
         <TimetableList slots={room.timetable} />
       </div>
     </article>
+  );
+}
+
+function StatusExplanation({ room }) {
+  const freshness = room.sensor_freshness;
+  const occupancy = room.occupancy;
+
+  return (
+    <div className="room-card__explanation">
+      {room.state === "IN_CLASS" && room.active_class && (
+        <p>
+          <strong>Class:</strong> {room.active_class.course_name} ·{" "}
+          {formatTime(room.active_class.start_time)}–
+          {formatTime(room.active_class.end_time)}
+        </p>
+      )}
+
+      {(room.state === "OCCUPIED" || room.state === "FULL") && occupancy && (
+        <p>
+          <strong>Occupancy:</strong> {occupancy.occupancy} / {occupancy.capacity} people
+        </p>
+      )}
+
+      {room.state === "UNKNOWN" && (
+        <p>
+          <strong>Sensor:</strong>{" "}
+          {freshness?.status === "STALE" ? "Data is stale" : "Data is unavailable"}
+          {freshness && ` · ${formatAge(freshness.age_seconds)}`}
+        </p>
+      )}
+
+      {room.state === "AVAILABLE" && (
+        <p>
+          <strong>Evidence:</strong> No active class or blocking occupancy detected
+        </p>
+      )}
+
+      {freshness?.fresh && room.state !== "IN_CLASS" && (
+        <p>
+          <strong>Sensor:</strong> Updated {formatAge(freshness.age_seconds)}
+        </p>
+      )}
+
+      <p className="room-card__why">
+        <strong>Why:</strong> {room.reason}
+      </p>
+    </div>
   );
 }

@@ -22,9 +22,11 @@ EXPECTED_AVAILABILITY_FIELDS = {
     "room_type",
     "capacity",
     "state",
+    "reason_code",
     "reason",
     "active_class",
     "occupancy",
+    "sensor_freshness",
     "timetable",
 }
 
@@ -50,8 +52,8 @@ def test_availability_room_has_exactly_the_expected_fields(client):
 
     for room in rooms:
         assert set(room) == EXPECTED_AVAILABILITY_FIELDS
-        # Capacity is preserved for later stages; occupancy does not exist yet.
         assert room["capacity"] > 0
+        assert room["sensor_freshness"]["status"] in {"FRESH", "STALE", "NO_READING"}
 
 
 def test_availability_states_match_the_timetable_at_a_fixed_moment(client):
@@ -64,6 +66,7 @@ def test_availability_states_match_the_timetable_at_a_fixed_moment(client):
 
     busy = rooms["BS-104"]
     assert busy["state"] == "IN_CLASS"
+    assert busy["reason_code"] == "IN_CLASS"
     assert busy["active_class"] is not None
     assert busy["active_class"]["course_name"] == "Introduction to Economics (ECO101)"
     assert busy["active_class"]["end_time"] == "13:00"
@@ -76,6 +79,7 @@ def test_availability_states_match_the_timetable_at_a_fixed_moment(client):
 
     occupied = rooms["EN-101"]
     assert occupied["state"] == "OCCUPIED"
+    assert occupied["reason_code"] == "OCCUPIED"
     assert occupied["active_class"] is None
     # No class scheduled, but 20 people detected in the room.
     assert "20" in occupied["reason"]
@@ -83,6 +87,8 @@ def test_availability_states_match_the_timetable_at_a_fixed_moment(client):
     assert "no class is scheduled" in occupied["reason"]
     assert occupied["occupancy"]["scenario"] == NORMAL
     assert occupied["occupancy"]["occupancy"] == 20
+    assert occupied["sensor_freshness"]["fresh"] is True
+    assert occupied["sensor_freshness"]["age_seconds"] == 0
 
 
 def test_availability_summary_counts_match_the_room_states(client):
