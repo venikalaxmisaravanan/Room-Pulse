@@ -5,6 +5,12 @@ __pycache__/
 venv/
 .pytest_cache/
 
+# Local SQLite database (created by `python -m app.db.init_db`)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
 # Node / Vite
 node_modules/
 dist/
