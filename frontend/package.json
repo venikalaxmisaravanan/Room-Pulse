@@ -1,0 +1,20 @@
+{
+  "name": "roompulse-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "RoomPulse dashboard — find a room you can actually use right now.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.7"
+  }
+}
