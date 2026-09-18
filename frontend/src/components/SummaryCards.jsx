@@ -10,9 +10,9 @@ const SUMMARY_CARDS = [
 /**
  * Summary cards for Available / Occupied / Reserved.
  *
- * The values are em dashes, not zeros: counting rooms would require room
- * records and the availability engine, and inventing numbers here would be
- * fake data. The cards exist so the layout and colour language are settled.
+ * The values stay em dashes: counting rooms needs the availability engine, and
+ * the engine does not exist yet. Printing 0 (or a made-up number) would claim
+ * knowledge RoomPulse does not have.
  */
 export default function SummaryCards() {
   return (
@@ -25,8 +25,8 @@ export default function SummaryCards() {
           <p className="summary-card__label">{card.label}</p>
           <p
             className="summary-card__value"
-            title="No room data source yet"
-            aria-label={`${card.label}: not available yet`}
+            title="Counted by the availability engine, which is not implemented yet"
+            aria-label={`${card.label}: not calculated yet`}
           >
             —
           </p>

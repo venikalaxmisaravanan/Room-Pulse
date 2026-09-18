@@ -1,0 +1,1 @@
+"""Database bootstrap: create the SQLite tables and insert the prototype data."""

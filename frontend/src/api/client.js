@@ -19,3 +19,22 @@ export async function getHealth(signal) {
 
   return response.json();
 }
+
+/**
+ * Load the room catalogue: every room with the timetable slots that belong to it.
+ *
+ * The response has the shape { count, rooms: [...] }. The list is returned
+ * directly because the dashboard only needs the rooms themselves.
+ *
+ * @param {AbortSignal} [signal] lets the caller cancel the request on unmount.
+ */
+export async function getRooms(signal) {
+  const response = await fetch(`${API_BASE_URL}/rooms`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`/api/rooms responded with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return payload.rooms ?? [];
+}
