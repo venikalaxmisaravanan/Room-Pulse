@@ -29,9 +29,9 @@ export async function getHealth(signal) {
  * The whole payload is returned (not just the list) because the dashboard
  * needs the counts and the evaluated moment too.
  *
- * One request on page load is enough for this stage: there is no live
- * sensor stream yet, so there is nothing to keep refreshing.
- * The caller can invoke the returned `reload` to fetch again manually.
+ * The dashboard loads this once on startup and then refreshes whenever the
+ * caller explicitly asks for a reload. The response includes the room-state
+ * counts and the evaluated timestamp that the UI displays.
  *
  * @param {AbortSignal} [signal] lets the caller cancel the request on unmount.
  */

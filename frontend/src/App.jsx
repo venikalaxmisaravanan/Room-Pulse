@@ -81,7 +81,7 @@ export default function App() {
       </main>
 
       <footer className="app__footer">
-        <span>RoomPulse · stage 3: timetable availability engine</span>
+        <span>Room state and student usability are separate.</span>
         <span className="app__footer-api">
           API endpoints: <code>/api/health</code> · <code>/api/rooms</code> ·{" "}
           <code>/api/rooms/availability</code>
