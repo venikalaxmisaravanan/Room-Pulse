@@ -1,4 +1,4 @@
-﻿# RoomPulse
+﻿﻿# RoomPulse
 
 > Find a room you can actually use right now.
 
@@ -195,13 +195,11 @@ RoomPulse/
 │       │   ├── occupancy.py
 │       │   └── room.py
 │       ├── services/
-│       │   ├── __init__.py
-│       │   ├── availability.py
 │       │   ├── availability_service.py
 │       │   ├── occupancy.py
 │       │   ├── room_service.py
-│       │   ├── sensor_freshness.py
-│       │   └── wslive.py
+│       │   └── sensor_freshness.py
+│       │
 │       └── tests/
 │           ├── conftest.py
 │           ├── test_availability.py

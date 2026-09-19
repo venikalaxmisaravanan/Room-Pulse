@@ -95,9 +95,13 @@ def assign_scenario(code: str) -> str:
 
 
 def _tick(now: datetime) -> int:
-    """Monotonic tick number: changes every STEP_SECONDS, deterministic."""
-    return int(now.timestamp() // STEP_SECONDS)
-
+    seconds = (
+        now.toordinal() * 86400
+        + now.hour * 3600
+        + now.minute * 60
+        + now.second
+    )
+    return seconds // STEP_SECONDS
 
 def _offset(code: str, length: int) -> int:
     """Deterministic per-room offset so rooms do not move in lockstep."""
