@@ -24,6 +24,7 @@ EXPECTED_AVAILABILITY_FIELDS = {
     "state",
     "reason_code",
     "reason",
+    "usability_reason",
     "active_class",
     "occupancy",
     "sensor_freshness",
@@ -54,6 +55,9 @@ def test_availability_room_has_exactly_the_expected_fields(client):
         assert set(room) == EXPECTED_AVAILABILITY_FIELDS
         assert room["capacity"] > 0
         assert room["sensor_freshness"]["status"] in {"FRESH", "STALE", "NO_READING"}
+        assert room["occupancy"]["remaining_capacity"] == (
+            room["capacity"] - room["occupancy"]["occupancy"]
+        )
 
 
 def test_availability_states_match_the_timetable_at_a_fixed_moment(client):
@@ -148,3 +152,16 @@ def test_readings_are_sequential_for_the_same_room(client):
     assert set(schema["paths"]["/api/rooms/find"]) == {"get"}
     assert set(schema["paths"]["/api/rooms"]) == {"get"}
     assert set(schema["paths"]["/api/rooms/occupancy"]) == {"get"}
+
+
+def test_websocket_live_snapshot_keeps_availability_contract(client):
+    with client.websocket_connect("/api/ws") as websocket:
+        assert websocket.receive_json() == {
+            "meta": {"kind": "connected", "connected": True}
+        }
+        payload = websocket.receive_json()
+
+    assert payload["count"] == len(ROOMS)
+    assert payload["rooms"]
+    assert all("remaining_capacity" in room["occupancy"] for room in payload["rooms"])
+    assert all("state" in room and "reason" in room for room in payload["rooms"])

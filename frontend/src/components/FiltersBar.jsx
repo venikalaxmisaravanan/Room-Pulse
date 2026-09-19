@@ -73,6 +73,20 @@ export default function FiltersBar({
             disabled={disabled}
           />
         </label>
+
+        <label className="field">
+          <span className="field__label">Seats needed</span>
+          <input
+            className="field__control"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="e.g. 10"
+            value={filters.seatsNeeded}
+            onChange={setField("seatsNeeded")}
+            disabled={disabled}
+          />
+        </label>
       </div>
 
       <button

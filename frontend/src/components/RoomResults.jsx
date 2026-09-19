@@ -127,12 +127,10 @@ export default function RoomResults({
 
       {status === "ready" && totalRooms > 0 && (
         <p className="results__notice">
-          <strong>Derived, not stored.</strong> Each badge comes from the
-          timetable at the evaluated moment: a room with a class in session
-          is <strong>In class</strong>, otherwise it is{" "}
-          <strong>Available</strong>. AVAILABLE means “no class scheduled” —
-          RoomPulse has no occupancy sensors yet, so it cannot promise the
-          room is actually empty.
+          <strong>Room state and student usability are separate.</strong> An
+          occupied room can appear in a seat-aware search when its trusted
+          remaining capacity is sufficient; classes, full rooms and unknown
+          sensor readings remain excluded.
         </p>
       )}
 

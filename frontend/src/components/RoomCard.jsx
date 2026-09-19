@@ -62,10 +62,9 @@ function TimetableList({ slots }) {
 /**
  * One room with its derived availability.
  *
- * `state` and `reason` come from GET /api/rooms/availability: the engine
- * compared the room's timetable against the evaluated moment. AVAILABLE means
- * "no class is scheduled right now" — not "the room is definitely empty",
- * because occupancy sensors do not exist yet.
+ * `state` and `reason` come from GET /api/rooms/availability. Search adds a
+ * separate usability explanation when the current headcount leaves room for
+ * the requested group.
  */
 export default function RoomCard({ room }) {
   const state = STATE_BY_ID[room.state] ?? STATE_BY_ID.UNKNOWN;
@@ -131,6 +130,12 @@ function StatusExplanation({ room }) {
         </p>
       )}
 
+      {room.state === "OCCUPIED" && occupancy && (
+        <p>
+          <strong>Seats available:</strong> {occupancy.remaining_capacity}
+        </p>
+      )}
+
       {room.state === "UNKNOWN" && (
         <p>
           <strong>Sensor:</strong>{" "}
@@ -148,6 +153,12 @@ function StatusExplanation({ room }) {
       {freshness?.fresh && room.state !== "IN_CLASS" && (
         <p>
           <strong>Sensor:</strong> Updated {formatAge(freshness.age_seconds)}
+        </p>
+      )}
+
+      {room.usability_reason && (
+        <p>
+          <strong>Search:</strong> {room.usability_reason}
         </p>
       )}
 

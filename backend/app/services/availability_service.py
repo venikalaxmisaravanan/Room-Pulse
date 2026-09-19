@@ -38,7 +38,7 @@ from app.services.occupancy import current_readings
 from app.services.room_service import _slot_sort_key
 from app.services.sensor_freshness import assess_reading
 
-USABLE_STATE: Final[str] = AVAILABLE
+USABLE_STATES: Final[tuple[str, ...]] = (AVAILABLE, OCCUPIED)
 
 
 def _format_time(value) -> str:
@@ -93,6 +93,7 @@ def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
         occupancy_payload = OccupancyRead(
             occupancy=reading.occupancy,
             capacity=room.capacity,
+            remaining_capacity=max(0, room.capacity - reading.occupancy),
             scenario=reading.scenario,
             timestamp=reading.timestamp,
             simulated=True,
@@ -160,21 +161,43 @@ def find_usable_rooms(
     building: str | None = None,
     room_type: str | None = None,
     min_capacity: int | None = None,
+    seats_needed: int = 1,
 ) -> AvailabilityListResponse:
-    """Return current AVAILABLE rooms matching catalogue requirements.
+    """Return rooms that can safely accommodate ``seats_needed`` students.
 
-    AVAILABLE is the only usable state: OCCUPIED, FULL, IN_CLASS and UNKNOWN
-    each describe a current condition that prevents RoomPulse from promising
-    immediate use. Existing catalogue order is retained for deterministic
-    results; this function does not introduce a second ranking system.
+    AVAILABLE and fresh OCCUPIED rooms can be student-usable. Room state keeps
+    its factual meaning; this search applies a separate capacity constraint.
+    Existing catalogue order is retained for deterministic results.
     """
+    if seats_needed < 1:
+        raise ValueError("seats_needed must be at least 1")
+
+    def usable(room) -> bool:
+        occupancy = room.occupancy
+        if room.state not in USABLE_STATES or occupancy is None:
+            return False
+        if room.sensor_freshness is None or not room.sensor_freshness.fresh:
+            return False
+        remaining = occupancy.remaining_capacity
+        return remaining >= seats_needed
+
     rooms = [
         room
         for room in snapshot.rooms
-        if room.state == USABLE_STATE
+        if usable(room)
         and (building is None or room.building == building)
         and (room_type is None or room.room_type == room_type)
         and (min_capacity is None or room.capacity >= min_capacity)
+    ]
+    rooms = [
+        room.model_copy(
+            update={
+                "usability_reason": (
+                    f"{room.occupancy.remaining_capacity} seats currently available."
+                )
+            }
+        )
+        for room in rooms
     ]
     counts = {state: 0 for state in (AVAILABLE, IN_CLASS, OCCUPIED, FULL, UNKNOWN)}
     for room in rooms:
@@ -192,7 +215,7 @@ def find_usable_rooms(
 
 
 __all__ = [
-    "USABLE_STATE",
+    "USABLE_STATES",
     "evaluate_catalogue",
     "evaluate_catalogue_from_simulator",
     "find_usable_rooms",
