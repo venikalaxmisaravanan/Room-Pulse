@@ -47,7 +47,7 @@ LEVELS: dict[str, list[float]] = {
     # Climbs until the room is full (last level == 1.0).
     CROWDING: [0.30, 0.50, 0.65, 0.80, 0.90, 1.0],
     # Drains away: 52 -> 38 -> 21 -> 8 -> 2 style.
-    ROOM_EMPTYING: [0.90, 0.70, 0.45, 0.20, 0.10, 0.05],
+    ROOM_EMPTYING: [0.90, 0.70, 0.45, 0.20, 0.10, 0.0],
     # Quiet, quiet, quiet, then suddenly busy.
     SUDDEN_OCCUPANCY: [0.10, 0.12, 0.15, 0.70, 0.80, 0.75],
     # Unused for live values (failure rooms freeze instead), but kept so the
@@ -142,13 +142,22 @@ def current_evaluated_at() -> datetime:
 
 
 def reading_for(
-    room_id: int, code: str, capacity: int, now: datetime
+    room_id: int,
+    code: str,
+    capacity: int,
+    now: datetime,
+    timestamp: datetime | None = None,
 ) -> OccupancyReading:
     """Build the current reading for one room.
 
     SENSOR_FAILURE rooms return their frozen first reading forever (same
     occupancy, same original timestamp) — the "sensor" has gone silent.
+
+    ``now`` drives the simulated occupancy level. ``timestamp`` records when
+    the reading was reported, so a live accelerated simulator does not change
+    sensor freshness semantics.
     """
+    reading_timestamp = timestamp or now
     scenario = assign_scenario(code)
     if scenario == SENSOR_FAILURE:
         frozen = _FROZEN.get(room_id)
@@ -159,7 +168,7 @@ def reading_for(
                 occupancy=occupancy_for(code, capacity, NORMAL, now),
                 capacity=capacity,
                 scenario=scenario,
-                timestamp=now,
+                timestamp=reading_timestamp,
             )
             _FROZEN[room_id] = frozen
         return frozen
@@ -169,14 +178,17 @@ def reading_for(
         occupancy=occupancy_for(code, capacity, scenario, now),
         capacity=capacity,
         scenario=scenario,
-        timestamp=now,
+        timestamp=reading_timestamp,
     )
 
 
-def current_readings(rooms, now: datetime) -> list[OccupancyReading]:
+def current_readings(
+    rooms, now: datetime, timestamp: datetime | None = None
+) -> list[OccupancyReading]:
     """Build the current reading for every room in the catalogue."""
     return [
-        reading_for(room.id, room.code, room.capacity, now) for room in rooms
+        reading_for(room.id, room.code, room.capacity, now, timestamp)
+        for room in rooms
     ]
 
 
