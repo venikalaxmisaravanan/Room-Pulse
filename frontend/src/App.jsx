@@ -20,8 +20,8 @@ import {
  *   SQLite -> /api/rooms/availability (engine: timetable x now)
  *     -> useAvailability -> filterRooms -> RoomResults -> RoomCard
  *
- * Every badge is derived: AVAILABLE means no class is in session at the
- * evaluated moment, IN_CLASS means a timetable slot is active.
+ * Every badge is derived from timetable, occupancy and sensor freshness;
+ * student usability is a separate capacity-aware search result.
  */
 export default function App() {
   const {

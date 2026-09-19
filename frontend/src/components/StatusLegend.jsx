@@ -15,9 +15,8 @@ export default function StatusLegend() {
           What the badges mean
         </h2>
         <p className="panel__note">
-          Available and In class are derived from the timetable at the
-          evaluated moment. Occupancy, reservations and sensor freshness
-          arrive in later stages — never from one boolean flag.
+          Room states combine timetable, occupancy and sensor freshness. Search
+          usability is calculated separately from trusted remaining capacity.
         </p>
       </div>
 

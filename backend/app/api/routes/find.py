@@ -22,9 +22,10 @@ def find_rooms(
     building: str | None = Query(default=None),
     room_type: str | None = Query(default=None),
     min_capacity: int | None = Query(default=None, ge=0),
+    seats_needed: int = Query(default=1, ge=1),
     at: str | None = Query(default=None),
 ) -> AvailabilityListResponse:
-    """Return only current AVAILABLE rooms matching the supplied filters."""
+    """Return rooms that can accommodate the requested student group."""
     if at is None:
         now = datetime.now()
     else:
@@ -36,4 +37,6 @@ def find_rooms(
                 detail=f"Query parameter 'at' is not a valid ISO datetime: {at!r}",
             ) from exc
     snapshot = evaluate_catalogue(db, now)
-    return find_usable_rooms(snapshot, building, room_type, min_capacity)
+    return find_usable_rooms(
+        snapshot, building, room_type, min_capacity, seats_needed
+    )

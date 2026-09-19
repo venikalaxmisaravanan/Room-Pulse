@@ -46,6 +46,7 @@ class RoomAvailabilityRead(BaseModel):
     state: str
     reason_code: str
     reason: str
+    usability_reason: str | None = None
     active_class: ActiveClassRead | None = None
     occupancy: OccupancyRead | None = None
     sensor_freshness: SensorFreshnessRead | None = None
@@ -60,6 +61,7 @@ class OccupancyRead(BaseModel):
 
     occupancy: int
     capacity: int
+    remaining_capacity: int
     scenario: str
     timestamp: datetime
     simulated: bool = True

@@ -1,6 +1,11 @@
 // Filtering over the latest complete availability snapshot.
 
-export const EMPTY_FILTERS = { building: "", roomType: "", minCapacity: "" };
+export const EMPTY_FILTERS = {
+  building: "",
+  roomType: "",
+  minCapacity: "",
+  seatsNeeded: "",
+};
 
 /**
  * Build the option lists for the filter controls from the loaded rooms,
@@ -19,9 +24,20 @@ export function getFilterOptions(rooms) {
  */
 export function filterRooms(rooms, filters) {
   const minCapacity = Number.parseInt(filters.minCapacity, 10);
+  const seatsNeeded = Number.parseInt(filters.seatsNeeded, 10);
+  const requiredSeats = Number.isNaN(seatsNeeded) ? 1 : seatsNeeded;
 
   return rooms.filter((room) => {
-    if (room.state !== "AVAILABLE") {
+    if (room.state !== "AVAILABLE" && room.state !== "OCCUPIED") {
+      return false;
+    }
+    if (!room.sensor_freshness?.fresh) {
+      return false;
+    }
+    const remainingCapacity = room.occupancy?.remaining_capacity ?? (
+      room.capacity - (room.occupancy?.occupancy ?? room.capacity)
+    );
+    if (remainingCapacity < requiredSeats) {
       return false;
     }
     if (filters.building && room.building !== filters.building) {
@@ -39,7 +55,12 @@ export function filterRooms(rooms, filters) {
 
 /** True when at least one filter is set (used to show the reset button). */
 export function hasActiveFilters(filters) {
-  return Boolean(filters.building || filters.roomType || filters.minCapacity);
+  return Boolean(
+    filters.building ||
+    filters.roomType ||
+    filters.minCapacity ||
+    filters.seatsNeeded
+  );
 }
 
 export function describeFilters(filters) {
@@ -50,5 +71,8 @@ export function describeFilters(filters) {
   const capacity = filters.minCapacity
     ? `at least ${filters.minCapacity} seats`
     : "any capacity";
-  return `${building} ${roomType} with ${capacity}`;
+  const seats = filters.seatsNeeded
+    ? `with ${filters.seatsNeeded} seats available`
+    : "for at least one student";
+  return `${building} ${roomType} with ${capacity}, ${seats}`;
 }
