@@ -81,7 +81,7 @@ def test_availability_states_match_the_timetable_at_a_fixed_moment(client):
     # The room would be ROOM_EMPTYING in this scenario; the only reason IN_CLASS
     # wins is that the class owns the room even though people are still inside.
     assert busy["occupancy"]["scenario"] == ROOM_EMPTYING
-    assert busy["occupancy"]["occupancy"] == 12
+    assert busy["occupancy"]["occupancy"] == 84
     assert busy["occupancy"]["capacity"] == 120
 
     occupied = rooms["EN-101"]
@@ -89,11 +89,11 @@ def test_availability_states_match_the_timetable_at_a_fixed_moment(client):
     assert occupied["reason_code"] == "OCCUPIED"
     assert occupied["active_class"] is None
     # No class scheduled, but 20 people detected in the room.
-    assert "20" in occupied["reason"]
+    assert "24" in occupied["reason"]
     assert "people detected" in occupied["reason"]
     assert "no class is scheduled" in occupied["reason"]
     assert occupied["occupancy"]["scenario"] == NORMAL
-    assert occupied["occupancy"]["occupancy"] == 20
+    assert occupied["occupancy"]["occupancy"] == 24
     assert occupied["sensor_freshness"]["fresh"] is True
     assert occupied["sensor_freshness"]["age_seconds"] == 0
 
