@@ -5,9 +5,8 @@ import { getHealth } from "../api/client.js";
 /**
  * Asks the backend once, on page load, whether it is alive.
  *
- * One request is enough for this stage: the dashboard has no live data to
- * stream yet. Real-time updates (WebSocket) are a later stage, which is why
- * this hook is kept deliberately small and easy to replace.
+ * This hook is intentionally small: the dashboard reports backend health
+ * separately from the live WebSocket connection state.
  *
  * @returns {{ state: "checking" | "online" | "offline", details: object|null, error: string|null }}
  */

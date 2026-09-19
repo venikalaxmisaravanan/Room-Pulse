@@ -1,11 +1,8 @@
-import { ACTIVE_STATES, ROOM_STATES } from "../constants/roomStates.js";
+import { ROOM_STATES } from "../constants/roomStates.js";
 
 /**
- * Explains the colour of each room state.
- *
- * Badges marked "(live)" are decided by the timetable engine right now;
- * the rest are the vocabulary later stages will fill in (occupancy,
- * reservations, sensor freshness).
+ * Explains the current room-state vocabulary used by the live availability
+ * response and the search logic.
  */
 export default function StatusLegend() {
   return (
@@ -26,14 +23,7 @@ export default function StatusLegend() {
             <span className={`badge badge--${state.tone}`}>
               {state.label}
             </span>
-            <span className="legend__description">
-              {state.description}{" "}
-              {ACTIVE_STATES.has(state.id) ? (
-                <em className="legend__live">(live in stage 3)</em>
-              ) : (
-                <em className="legend__live">(later stage)</em>
-              )}
-            </span>
+            <span className="legend__description">{state.description}</span>
           </li>
         ))}
       </ul>

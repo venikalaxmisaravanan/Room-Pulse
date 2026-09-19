@@ -8,9 +8,8 @@ const STATUS_TEXT = {
 /**
  * Product header: branding plus a status pill.
  *
- * The pill is driven by the real /api/health call, so it tells the truth:
- * green only when FastAPI actually answered. Live room updates reuse this
- * slot in a later stage.
+ * The REST health call confirms the backend is reachable, and the live
+ * WebSocket feed updates the room snapshot without a page refresh.
  */
 export default function HeaderBar({ connectionState }) {
   const state = connectionState ?? "disconnected";

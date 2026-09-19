@@ -20,8 +20,8 @@ export default function FiltersBar({
           Find Me a Room
         </h2>
         <p className="panel__note">
-          Search the latest RoomPulse snapshot for rooms that are currently
-          usable.
+          Search the latest RoomPulse snapshot for rooms that can
+          accommodate the requested number of students.
         </p>
       </div>
 

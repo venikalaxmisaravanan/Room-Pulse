@@ -8,16 +8,26 @@
 // `tone` matches the room-state colours defined in constants/roomStates.js.
 
 const SUMMARY_CARDS = [
-  { id: "available", label: "Available", tone: "available", hint: "No class scheduled" },
-  { id: "in-class", label: "In class", tone: "in-class", hint: "Timetable in session" },
+  {
+    id: "available",
+    label: "Available",
+    tone: "available",
+    hint: "Room state: no class scheduled",
+  },
+  {
+    id: "in-class",
+    label: "In class",
+    tone: "in-class",
+    hint: "Room state: timetable in session",
+  },
 ];
 
 /**
- * Summary cards for Available / In class.
+ * Summary cards for current room-state totals.
  *
  * The values come from the availability endpoint. While the data is loading
- * (or when it failed) an em dash is shown instead of a number, because
- * printing 0 would claim knowledge RoomPulse does not have yet.
+ * or failed, an em dash is shown instead of a number so the UI does not imply
+ * a fact it cannot trust.
  */
 export default function SummaryCards({ availableCount, inClassCount }) {
   const values = { available: availableCount, "in-class": inClassCount };

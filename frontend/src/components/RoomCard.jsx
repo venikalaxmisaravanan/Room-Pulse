@@ -26,8 +26,7 @@ function TimetableList({ slots }) {
   if (slots.length === 0) {
     return (
       <p className="timetable__empty">
-        No classes in the prototype timetable — that does not mean the room is
-        free, because availability is not calculated yet.
+        The prototype timetable has no scheduled classes for this room.
       </p>
     );
   }
