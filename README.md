@@ -32,7 +32,7 @@ This is the gap RoomPulse is designed to address: **the difference between "my t
 
 ## Why I Built RoomPulse
 
-This project started from my own experience as an FFCS(Fully Flexible Credit System) student.
+This project started from my own experience as a Fully Flexible Credit System (FFCS) student.
 
 While using a personalized FFCS timetable, I faced situations where I needed a classroom or laboratory, but knowing what was in my own timetable was not enough to determine whether a particular room was actually available.
 
@@ -469,6 +469,12 @@ Added the student-focused room search that filters the latest live snapshot by b
 
 ### Stage 9 — capacity-aware student usability
 Separated room state from student usefulness so partially occupied rooms can be returned when they still have enough remaining seats.
+
+### Stage 10 — final project polish
+Cleaned outdated UI and documentation, refined the dashboard presentation, and aligned the README with the final system behaviour.
+
+### Stage 11 — live time and availability synchronization
+Separated real backend time used for timetable evaluation from the accelerated simulator time used for changing occupancy. This allowed timetable states and live occupancy changes to work together correctly in the WebSocket dashboard.
 
 ## Author
 
