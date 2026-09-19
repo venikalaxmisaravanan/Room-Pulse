@@ -3,11 +3,11 @@
 
 :root {
   /* Surfaces */
-  --surface-page: #070c17;
-  --surface-panel: #101827;
-  --surface-raised: #162034;
-  --border-subtle: #223049;
-  --border-strong: #2f3f5c;
+  --surface-page: #0d1728;
+  --surface-panel: #152238;
+  --surface-raised: #1b2b45;
+  --border-subtle: #2a3d5d;
+  --border-strong: #385071;
 
   /* Text */
   --text-primary: #eef2f9;

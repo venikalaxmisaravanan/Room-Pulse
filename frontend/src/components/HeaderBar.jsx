@@ -5,13 +5,25 @@ const STATUS_TEXT = {
   disconnected: "Disconnected",
 };
 
+function formatEvaluatedAt(value) {
+  if (!value) return "Waiting for first snapshot";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
 /**
  * Product header: branding plus a status pill.
  *
  * The REST health call confirms the backend is reachable, and the live
  * WebSocket feed updates the room snapshot without a page refresh.
  */
-export default function HeaderBar({ connectionState }) {
+export default function HeaderBar({ connectionState, evaluatedAt }) {
   const state = connectionState ?? "disconnected";
   const detail = state === "connected" ? "Live availability snapshots" : "Live feed /api/ws";
 
@@ -55,16 +67,22 @@ export default function HeaderBar({ connectionState }) {
         </div>
       </div>
 
-      <div
-        className={`status-pill status-pill--${state}`}
-        role="status"
-        aria-live="polite"
-      >
-        <span className="status-pill__dot" aria-hidden="true" />
-        <span className="status-pill__text">
-          <strong>{STATUS_TEXT[state]}</strong>
-          <small>{detail}</small>
-        </span>
+      <div className="header__meta">
+        <div className="header__evaluated">
+          <span className="header__meta-label">Evaluated</span>
+          <strong>{formatEvaluatedAt(evaluatedAt)}</strong>
+        </div>
+        <div
+          className={`status-pill status-pill--${state}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span className="status-pill__dot" aria-hidden="true" />
+          <span className="status-pill__text">
+            <strong>{STATUS_TEXT[state]}</strong>
+            <small>{detail}</small>
+          </span>
+        </div>
       </div>
     </header>
   );
