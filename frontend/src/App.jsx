@@ -50,7 +50,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <HeaderBar connectionState={connectionState} />
+      <HeaderBar connectionState={connectionState} evaluatedAt={evaluatedAt} />
 
       <main className="app__main">
         <FiltersBar

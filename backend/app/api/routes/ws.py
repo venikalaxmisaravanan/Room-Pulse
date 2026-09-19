@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
@@ -39,8 +40,11 @@ class ConnectionBag:
     async def run(self) -> None:
         try:
             while self.connections:
+                evaluated_at = datetime.now()
                 advance_simulation_one_tick()
-                snapshot = evaluate_catalogue_from_simulator(current_evaluated_at())
+                snapshot = evaluate_catalogue_from_simulator(
+                    evaluated_at, occupancy_now=current_evaluated_at()
+                )
                 payload = snapshot.model_dump(mode="json")
                 for websocket in tuple(self.connections):
                     try:

@@ -12,13 +12,13 @@ const SUMMARY_CARDS = [
     id: "available",
     label: "Available",
     tone: "available",
-    hint: "Room state: no class scheduled",
+    hint: "rooms ready to use",
   },
   {
     id: "in-class",
     label: "In class",
     tone: "in-class",
-    hint: "Room state: timetable in session",
+    hint: "rooms currently in session",
   },
 ];
 

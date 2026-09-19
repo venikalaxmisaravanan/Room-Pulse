@@ -73,7 +73,8 @@ export default function RoomCard({ room }) {
       <div className="room-card__top">
         <div>
           <h3 className="room-card__code">{room.code}</h3>
-          <p className="room-card__name">{room.name}</p>
+          <p className="room-card__name">{room.room_type}</p>
+          <p className="room-card__location">{room.name} · {room.building}</p>
         </div>
 
         <span
@@ -84,20 +85,31 @@ export default function RoomCard({ room }) {
         </span>
       </div>
 
+      {room.occupancy && room.state !== "UNKNOWN" && (
+        <div className="room-card__metrics" aria-label="Room capacity summary">
+          <div className="room-card__metric room-card__metric--occupancy">
+            <span className="room-card__metric-label">Occupancy</span>
+            <strong>{room.occupancy.occupancy} <span>/ {room.occupancy.capacity}</span></strong>
+            <span className="room-card__metric-detail">people detected</span>
+          </div>
+          <div className="room-card__metric room-card__metric--remaining">
+            <span className="room-card__metric-label">Remaining</span>
+            <strong>{room.occupancy.remaining_capacity}</strong>
+            <span className="room-card__metric-detail">seats available</span>
+          </div>
+        </div>
+      )}
+
       <StatusExplanation room={room} />
 
       <dl className="room-card__facts">
         <div className="fact">
-          <dt>Building</dt>
-          <dd>{room.building}</dd>
-        </div>
-        <div className="fact">
-          <dt>Type</dt>
-          <dd>{room.room_type}</dd>
-        </div>
-        <div className="fact">
           <dt>Capacity</dt>
           <dd>{room.capacity} seats</dd>
+        </div>
+        <div className="fact">
+          <dt>Building</dt>
+          <dd>{room.building}</dd>
         </div>
       </dl>
 
@@ -111,7 +123,6 @@ export default function RoomCard({ room }) {
 
 function StatusExplanation({ room }) {
   const freshness = room.sensor_freshness;
-  const occupancy = room.occupancy;
 
   return (
     <div className="room-card__explanation">
@@ -120,18 +131,6 @@ function StatusExplanation({ room }) {
           <strong>Class:</strong> {room.active_class.course_name} ·{" "}
           {formatTime(room.active_class.start_time)}–
           {formatTime(room.active_class.end_time)}
-        </p>
-      )}
-
-      {(room.state === "OCCUPIED" || room.state === "FULL") && occupancy && (
-        <p>
-          <strong>Occupancy:</strong> {occupancy.occupancy} / {occupancy.capacity} people
-        </p>
-      )}
-
-      {room.state === "OCCUPIED" && occupancy && (
-        <p>
-          <strong>Seats available:</strong> {occupancy.remaining_capacity}
         </p>
       )}
 

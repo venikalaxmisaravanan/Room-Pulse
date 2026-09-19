@@ -57,14 +57,22 @@ def _reason_code(state: str, freshness) -> str:
     return state
 
 
-def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
+def evaluate_catalogue(
+    db: Session, now: datetime, occupancy_now: datetime | None = None
+) -> AvailabilityListResponse:
     """Load every room, decide its state at ``now``, return the API payload.
 
-    The same ``now`` feeds both the timetable comparison and the simulator,
-    so the whole response describes one consistent moment.
+    ``now`` is the real evaluation moment used for timetable and freshness
+    decisions. ``occupancy_now`` may be an accelerated simulator moment for
+    live demos; readings still carry ``now`` as their report timestamp.
     """
     rooms = db.scalars(select(Room).order_by(Room.code)).all()
-    readings = {reading.code: reading for reading in current_readings(rooms, now)}
+    readings = {
+        reading.code: reading
+        for reading in current_readings(
+            rooms, occupancy_now or now, timestamp=now
+        )
+    }
 
     results: list[RoomAvailabilityRead] = []
     for room in rooms:
@@ -148,12 +156,14 @@ def evaluate_catalogue(db: Session, now: datetime) -> AvailabilityListResponse:
     )
 
 
-def evaluate_catalogue_from_simulator(now: datetime) -> AvailabilityListResponse:
+def evaluate_catalogue_from_simulator(
+    now: datetime, occupancy_now: datetime | None = None
+) -> AvailabilityListResponse:
     """Evaluate one live tick through the same catalogue engine as REST."""
     from app.core.database import SessionLocal
 
     with SessionLocal() as db:
-        return evaluate_catalogue(db, now)
+        return evaluate_catalogue(db, now, occupancy_now=occupancy_now)
 
 
 def find_usable_rooms(

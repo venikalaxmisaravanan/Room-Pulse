@@ -4,6 +4,9 @@ The endpoint is read-only and derived: it loads the seeded catalogue, runs
 the engine at one moment and returns the answer. Nothing is stored.
 """
 
+from datetime import datetime
+from unittest.mock import patch
+
 from app.db.seed_data import ROOMS
 from app.services.occupancy import (
     CROWDING,
@@ -165,3 +168,35 @@ def test_websocket_live_snapshot_keeps_availability_contract(client):
     assert payload["rooms"]
     assert all("remaining_capacity" in room["occupancy"] for room in payload["rooms"])
     assert all("state" in room and "reason" in room for room in payload["rooms"])
+
+
+def test_saturday_class_is_in_class_at_a_fixed_live_timestamp(client):
+    payload = client.get(
+        "/api/rooms/availability", params={"at": "2026-09-19T10:30:00"}
+    ).json()
+
+    room = next(room for room in payload["rooms"] if room["code"] == "EN-L1")
+    assert room["state"] == "IN_CLASS"
+    assert room["active_class"]["course_name"] == "Weekend Coding Workshop (CS-OPEN)"
+
+
+def test_saturday_room_is_not_in_class_outside_the_class_window(client):
+    payload = client.get(
+        "/api/rooms/availability", params={"at": "2026-09-19T15:13:00"}
+    ).json()
+
+    room = next(room for room in payload["rooms"] if room["code"] == "EN-L1")
+    assert room["state"] != "IN_CLASS"
+    assert room["active_class"] is None
+
+
+def test_websocket_snapshot_uses_its_backend_evaluation_timestamp(client):
+    evaluated_at = datetime(2026, 9, 19, 10, 30)
+
+    with patch("app.api.routes.ws.datetime") as clock:
+        clock.now.return_value = evaluated_at
+        with client.websocket_connect("/api/ws") as websocket:
+            websocket.receive_json()
+            payload = websocket.receive_json()
+
+    assert payload["evaluated_at"] == evaluated_at.isoformat()
