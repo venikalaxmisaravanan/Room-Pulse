@@ -1,4 +1,4 @@
-﻿# RoomPulse
+﻿﻿# RoomPulse
 
 > Find a room you can actually use right now.
 
@@ -20,9 +20,35 @@ The final project includes:
 
 ## Problem
 
-Students do not just need to know whether a timetable says a room is free. They need to know whether they can actually use the room right now for the number of people in their group. A timetable may say a room is not scheduled, but it may still be full, partly occupied, or missing trustworthy sensor data.
+In an FFCS-based academic system, students generally work with their own personalized timetable. That timetable tells a student which classes they have and where they need to be, but it does not necessarily give them visibility into what other student groups are doing with the same rooms at the same time.
 
-RoomPulse addresses that gap by separating room state from student usability.
+This creates a practical problem when a student wants to find a classroom or laboratory to use outside their own scheduled classes.
+
+For example, my timetable may show that I have no class in a particular room at 3:45 PM. However, that does not mean the room is actually available. Another student group may have a class allocated to that room at the same time, students may already be occupying the space, or the room may already be full.
+
+The student knows their own timetable, but not necessarily the complete room allocation across other students and classes.
+
+This is the gap RoomPulse is designed to address: **the difference between "my timetable does not use this room" and "this room is actually usable right now."**
+
+## Why I Built RoomPulse
+
+This project started from my own experience as a Fully Flexible Credit System (FFCS) student.
+
+While using a personalized FFCS timetable, I faced situations where I needed a classroom or laboratory, but knowing what was in my own timetable was not enough to determine whether a particular room was actually available.
+
+My timetable could tell me where I had classes and when I had them. But it did not give me the complete picture of what other student groups were doing with the rooms at that time. A room that appeared to be free from the perspective of my own timetable could already be allocated to another class or occupied by other students.
+
+That made me think about a simple question:
+
+> **"If I need a room right now, how do I know whether I can actually use it?"**
+
+I wanted to build a system that could answer that question using the information that affects real room availability, rather than relying only on a student's individual timetable.
+
+That idea became RoomPulse.
+
+The prototype combines timetable information, simulated occupancy, room capacity and sensor freshness to derive the current state of a room. It then separates that room state from student usability, so that a room can still be considered usable for a group even when other people are already inside, as long as enough trusted capacity remains.
+
+I intentionally built this as a prototype rather than trying to connect it directly to a real college's infrastructure. The goal was to take a problem I had personally encountered and explore how a real-time room-availability system could solve it through deterministic rules, simulated live occupancy and an explainable dashboard.
 
 ## Core concept
 
@@ -169,13 +195,11 @@ RoomPulse/
 │       │   ├── occupancy.py
 │       │   └── room.py
 │       ├── services/
-│       │   ├── __init__.py
-│       │   ├── availability.py
 │       │   ├── availability_service.py
 │       │   ├── occupancy.py
 │       │   ├── room_service.py
-│       │   ├── sensor_freshness.py
-│       │   └── wslive.py
+│       │   └── sensor_freshness.py
+│       │
 │       └── tests/
 │           ├── conftest.py
 │           ├── test_availability.py
@@ -273,6 +297,16 @@ Determination order is explicit and deterministic:
 5. Otherwise, the room is `AVAILABLE`.
 
 This means the engine is not just “class in session or not”; it is a combined classification of room state based on timetable, occupancy, capacity and freshness.
+
+### Timetable matching
+
+RoomPulse does not determine an active class from time alone. It matches the current **weekday and time** against the timetable.
+
+For example, if a class is scheduled for Monday from 3:45 PM to 5:15 PM, RoomPulse will treat that class as active only when the current day is Monday and the current time falls within that interval.
+
+Therefore, a Monday 3:45 PM class is not treated as active on Saturday at 3:45 PM.
+
+This matters because availability depends on the actual timetable slot, not just the clock time. The same time of day can represent completely different room states on different days.
 
 ## Sensor freshness
 
@@ -434,11 +468,23 @@ Added the student-focused room search that filters the latest live snapshot by b
 ### Stage 9 — capacity-aware student usability
 Separated room state from student usefulness so partially occupied rooms can be returned when they still have enough remaining seats.
 
-## Important README rules
+### Stage 10 — final project polish
+Cleaned outdated UI and documentation, refined the dashboard presentation, and aligned the README with the final system behaviour.
 
-- The README describes the final current project, not a stage-only prototype.
-- It does not claim reservations are implemented.
-- It does not claim real physical sensors are connected.
-- It does not describe WebSocket or Find Me a Room as future ideas.
-- It clearly differentiates room state from student usability.
-- It keeps prototype boundaries honest without treating them as failures.
+### Stage 11 — live time and availability synchronization
+Separated real backend time used for timetable evaluation from the accelerated simulator time used for changing occupancy. This allowed timetable states and live occupancy changes to work together correctly in the WebSocket dashboard.
+
+## Author
+
+**S.VENIKALAXMI**
+Integrated MTech Software Engineering , VIT VELLORE.
+
+Built as a learning-focused project for the **First Commit Hackathon 2026**.
+
+## Hackathon
+
+**First Commit Hackathon 2026**
+
+RoomPulse was built during the hackathon based on a real-world problem I experienced as an FFCS student. The project was developed incrementally to understand the problem, design the system, implement each stage, test the results, and learn from the development process.
+
+AI tools were used throughout development for brainstorming, coding assistance, debugging, testing, and documentation, while the implementation was reviewed and tested at each stage.
