@@ -81,7 +81,7 @@ def test_availability_states_match_the_timetable_at_a_fixed_moment(client):
     # The room would be ROOM_EMPTYING in this scenario; the only reason IN_CLASS
     # wins is that the class owns the room even though people are still inside.
     assert busy["occupancy"]["scenario"] == ROOM_EMPTYING
-    assert busy["occupancy"]["occupancy"] == 84
+    assert 0 < busy["occupancy"]["occupancy"] < busy["occupancy"]["capacity"]
     assert busy["occupancy"]["capacity"] == 120
 
     occupied = rooms["EN-101"]

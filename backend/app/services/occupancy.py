@@ -25,6 +25,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from app.services.availability import find_active_slot
+
 # Scenario names. ROOM_EMPTYING keeps the spec's vocabulary.
 NORMAL = "NORMAL"
 CROWDING = "CROWDING"
@@ -151,6 +153,7 @@ def reading_for(
     capacity: int,
     now: datetime,
     timestamp: datetime | None = None,
+    slots=None,
 ) -> OccupancyReading:
     """Build the current reading for one room.
 
@@ -159,7 +162,9 @@ def reading_for(
 
     ``now`` drives the simulated occupancy level. ``timestamp`` records when
     the reading was reported, so a live accelerated simulator does not change
-    sensor freshness semantics.
+    sensor freshness semantics. When a timetable slot is active, the simulator
+    keeps one deterministic attendance value for the whole class interval rather
+    than changing continuously with the generic scenario cycle.
     """
     reading_timestamp = timestamp or now
     scenario = assign_scenario(code)
@@ -176,6 +181,20 @@ def reading_for(
             )
             _FROZEN[room_id] = frozen
         return frozen
+
+    active_slot = find_active_slot(slots or (), now)
+    if active_slot is not None:
+        class_start = datetime.combine(now.date(), active_slot.start_time)
+        occupancy_value = occupancy_for(code, capacity, scenario, class_start)
+        return OccupancyReading(
+            room_id=room_id,
+            code=code,
+            occupancy=occupancy_value,
+            capacity=capacity,
+            scenario=scenario,
+            timestamp=reading_timestamp,
+        )
+
     return OccupancyReading(
         room_id=room_id,
         code=code,
@@ -191,7 +210,14 @@ def current_readings(
 ) -> list[OccupancyReading]:
     """Build the current reading for every room in the catalogue."""
     return [
-        reading_for(room.id, room.code, room.capacity, now, timestamp)
+        reading_for(
+            room.id,
+            room.code,
+            room.capacity,
+            now,
+            timestamp,
+            slots=getattr(room, "timetable", None),
+        )
         for room in rooms
     ]
 

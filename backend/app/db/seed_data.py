@@ -89,7 +89,7 @@ ROOMS: list[dict] = [
         "room_type": "Seminar Room",
         "capacity": 25,
         "timetable": [
-            slot("Monday", "11:30", "13:00", "Research Methods Seminar (SCI300)"),
+            slot("Monday", "11:00", "13:00", "Research Methods Seminar (SCI300)"),
             slot("Wednesday", "14:00", "15:30", "Research Methods Seminar (SCI300)"),
             slot("Friday", "09:45", "11:15", "Academic Skills (SCI101)"),
         ],
