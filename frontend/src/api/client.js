@@ -4,7 +4,7 @@
 // "/api" works out of the box because Vite proxies that prefix to FastAPI
 // during development (see vite.config.js).
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 /**
  * Ask the backend whether it is running.
