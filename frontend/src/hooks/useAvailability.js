@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getAvailability } from "../api/client.js";
+import { API_BASE_URL, getAvailability } from "../api/client.js";
 
 /**
  * Loads the REST snapshot first, then replaces it with snapshots from /api/ws.
@@ -70,8 +70,8 @@ export function useAvailability() {
     const connect = () => {
       if (stopped) return;
       setConnectionState(hasConnected ? "reconnecting" : "connecting");
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      socket = new WebSocket(`${protocol}://${window.location.host}/api/ws`);
+      const wsBaseUrl = API_BASE_URL.replace(/^http/, "ws");
+      socket = new WebSocket(`${wsBaseUrl}/ws`);
       socket.onopen = () => {
         hasConnected = true;
         setConnectionState("connected");
